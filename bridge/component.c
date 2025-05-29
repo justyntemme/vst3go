@@ -2,19 +2,26 @@
 #include <string.h>
 #include <stdlib.h>
 
-// Component implementation that wraps Go component
+// Forward declare
+typedef struct Component Component;
+
+// Audio processor interface wrapper
 typedef struct {
-    // IComponent vtable must be first
-    struct Steinberg_Vst_IComponentVtbl* componentVtbl;
-    // IAudioProcessor vtable
-    struct Steinberg_Vst_IAudioProcessorVtbl* audioProcessorVtbl;
-    // IEditController vtable  
-    struct Steinberg_Vst_IEditControllerVtbl* editControllerVtbl;
+    struct Steinberg_Vst_IAudioProcessorVtbl* lpVtbl;
+    Component* component;
+} AudioProcessorInterface;
+
+// Component implementation that wraps Go component
+struct Component {
+    // IComponent vtable pointer must be first for COM compatibility
+    struct Steinberg_Vst_IComponentVtbl* lpVtbl;
+    // Audio processor interface
+    AudioProcessorInterface audioProcessor;
     // Reference count
     int refCount;
     // Go component handle
     void* goComponent;
-} Component;
+};
 
 // Forward declarations for IComponent methods
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_queryInterface(void* thisInterface, const Steinberg_TUID iid, void** obj);
@@ -31,6 +38,11 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_activateBus(void* this
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_setActive(void* thisInterface, Steinberg_TBool state);
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_setState(void* thisInterface, struct Steinberg_IBStream* state);
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_getState(void* thisInterface, struct Steinberg_IBStream* state);
+
+// Forward declarations for IAudioProcessor IUnknown methods
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_queryInterface(void* thisInterface, const Steinberg_TUID iid, void** obj);
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE audio_addRef(void* thisInterface);
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE audio_release(void* thisInterface);
 
 // Forward declarations for IAudioProcessor methods
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_setBusArrangements(void* thisInterface, Steinberg_Vst_SpeakerArrangement* inputs, Steinberg_int32 numIns, Steinberg_Vst_SpeakerArrangement* outputs, Steinberg_int32 numOuts);
@@ -62,9 +74,9 @@ static struct Steinberg_Vst_IComponentVtbl componentVtbl = {
 
 // IAudioProcessor vtable  
 static struct Steinberg_Vst_IAudioProcessorVtbl audioProcessorVtbl = {
-    component_queryInterface,  // Reuse same IUnknown methods
-    component_addRef,
-    component_release,
+    audio_queryInterface,
+    audio_addRef,
+    audio_release,
     audio_setBusArrangements,
     audio_getBusArrangement,
     audio_canProcessSampleSize,
@@ -80,9 +92,9 @@ void* createComponent(void* goComponent) {
     Component* component = (Component*)malloc(sizeof(Component));
     if (!component) return NULL;
     
-    component->componentVtbl = &componentVtbl;
-    component->audioProcessorVtbl = &audioProcessorVtbl;
-    component->editControllerVtbl = NULL; // TODO: implement edit controller
+    component->lpVtbl = &componentVtbl;
+    component->audioProcessor.lpVtbl = &audioProcessorVtbl;
+    component->audioProcessor.component = component;
     component->refCount = 1;
     component->goComponent = goComponent;
     
@@ -94,6 +106,7 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_queryInterface(void* t
     Component* component = (Component*)thisInterface;
     
     if (memcmp(iid, Steinberg_FUnknown_iid, sizeof(Steinberg_TUID)) == 0 ||
+        memcmp(iid, Steinberg_IPluginBase_iid, sizeof(Steinberg_TUID)) == 0 ||
         memcmp(iid, Steinberg_Vst_IComponent_iid, sizeof(Steinberg_TUID)) == 0) {
         *obj = component; // Return component itself, not vtable pointer
         component_addRef(thisInterface);
@@ -101,7 +114,7 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_queryInterface(void* t
     }
     
     if (memcmp(iid, Steinberg_Vst_IAudioProcessor_iid, sizeof(Steinberg_TUID)) == 0) {
-        *obj = component; // Return component itself  
+        *obj = &component->audioProcessor; // Return audio processor interface
         component_addRef(thisInterface);
         return ((Steinberg_tresult)0);
     }
@@ -192,43 +205,59 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_getState(void* thisInt
     return ((Steinberg_tresult)0);
 }
 
+// IAudioProcessor IUnknown implementation
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_queryInterface(void* thisInterface, const Steinberg_TUID iid, void** obj) {
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return component_queryInterface(audioProc->component, iid, obj);
+}
+
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE audio_addRef(void* thisInterface) {
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return component_addRef(audioProc->component);
+}
+
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE audio_release(void* thisInterface) {
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return component_release(audioProc->component);
+}
+
 // IAudioProcessor implementation
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_setBusArrangements(void* thisInterface, Steinberg_Vst_SpeakerArrangement* inputs, Steinberg_int32 numIns, Steinberg_Vst_SpeakerArrangement* outputs, Steinberg_int32 numOuts) {
-    Component* component = (Component*)thisInterface;
-    return GoAudioSetBusArrangements(component->goComponent, inputs, numIns, outputs, numOuts);
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return GoAudioSetBusArrangements(audioProc->component->goComponent, inputs, numIns, outputs, numOuts);
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_getBusArrangement(void* thisInterface, Steinberg_Vst_BusDirection dir, Steinberg_int32 index, Steinberg_Vst_SpeakerArrangement* arr) {
-    Component* component = (Component*)thisInterface;
-    return GoAudioGetBusArrangement(component->goComponent, dir, index, arr);
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return GoAudioGetBusArrangement(audioProc->component->goComponent, dir, index, arr);
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_canProcessSampleSize(void* thisInterface, Steinberg_int32 symbolicSampleSize) {
-    Component* component = (Component*)thisInterface;
-    return GoAudioCanProcessSampleSize(component->goComponent, symbolicSampleSize);
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return GoAudioCanProcessSampleSize(audioProc->component->goComponent, symbolicSampleSize);
 }
 
 static Steinberg_uint32 SMTG_STDMETHODCALLTYPE audio_getLatencySamples(void* thisInterface) {
-    Component* component = (Component*)thisInterface;
-    return GoAudioGetLatencySamples(component->goComponent);
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return GoAudioGetLatencySamples(audioProc->component->goComponent);
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_setupProcessing(void* thisInterface, struct Steinberg_Vst_ProcessSetup* setup) {
-    Component* component = (Component*)thisInterface;
-    return GoAudioSetupProcessing(component->goComponent, setup);
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return GoAudioSetupProcessing(audioProc->component->goComponent, setup);
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_setProcessing(void* thisInterface, Steinberg_TBool state) {
-    Component* component = (Component*)thisInterface;
-    return GoAudioSetProcessing(component->goComponent, state);
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return GoAudioSetProcessing(audioProc->component->goComponent, state);
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_process(void* thisInterface, struct Steinberg_Vst_ProcessData* data) {
-    Component* component = (Component*)thisInterface;
-    return GoAudioProcess(component->goComponent, data);
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return GoAudioProcess(audioProc->component->goComponent, data);
 }
 
 static Steinberg_uint32 SMTG_STDMETHODCALLTYPE audio_getTailSamples(void* thisInterface) {
-    Component* component = (Component*)thisInterface;
-    return GoAudioGetTailSamples(component->goComponent);
+    AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
+    return GoAudioGetTailSamples(audioProc->component->goComponent);
 }

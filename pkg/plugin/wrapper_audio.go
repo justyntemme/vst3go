@@ -5,6 +5,7 @@ package plugin
 // #include <stdlib.h>
 import "C"
 import (
+	"fmt"
 	"unsafe"
 	
 	"github.com/justyntemme/vst3go/pkg/vst3"
@@ -133,11 +134,18 @@ func GoAudioProcess(componentPtr unsafe.Pointer, data unsafe.Pointer) C.Steinber
 	id := uintptr(componentPtr)
 	wrapper := getComponent(id)
 	if wrapper == nil {
+		fmt.Printf("GoAudioProcess: wrapper is nil for id %v\n", id)
+		return C.Steinberg_tresult(2)
+	}
+	
+	if wrapper.component == nil {
+		fmt.Printf("GoAudioProcess: wrapper.component is nil\n")
 		return C.Steinberg_tresult(2)
 	}
 	
 	err := wrapper.component.Process(data)
 	if err != nil {
+		fmt.Printf("GoAudioProcess: Process error: %v\n", err)
 		return C.Steinberg_tresult(1)
 	}
 	return C.Steinberg_tresult(0)

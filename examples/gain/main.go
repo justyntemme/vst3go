@@ -86,6 +86,11 @@ func (g *GainComponent) Process(data unsafe.Pointer) error {
 			inChan := input.GetChannel(ch)
 			outChan := output.GetChannel(ch)
 			
+			// Check if channels are valid
+			if inChan == nil || outChan == nil {
+				continue
+			}
+			
 			// Apply gain to each sample
 			for i := 0; i < int(wrapper.NumSamples()); i++ {
 				outChan[i] = inChan[i] * gain

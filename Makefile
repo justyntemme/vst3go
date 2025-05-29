@@ -66,6 +66,14 @@ bundle: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
 	@cp $(BUILD_DIR)/libgain.$(SO_EXT) $(BUILD_DIR)/$(PLUGIN_NAME).vst3/Contents/$(VST3_ARCH)/
 	@echo "VST3 bundle created: $(BUILD_DIR)/$(PLUGIN_NAME).vst3"
 
+# Install VST3 plugin to user's VST3 directory
+install: bundle
+	@echo "Installing $(PLUGIN_NAME).vst3 to ~/.vst3"
+	@mkdir -p ~/.vst3
+	@rm -rf ~/.vst3/$(PLUGIN_NAME).vst3
+	@cp -r $(BUILD_DIR)/$(PLUGIN_NAME).vst3 ~/.vst3/
+	@echo "Installation complete: ~/.vst3/$(PLUGIN_NAME).vst3"
+
 # Clean build artifacts
 clean:
 	rm -rf $(BUILD_DIR)
@@ -122,6 +130,7 @@ help:
 	@echo "Build targets:"
 	@echo "  make gain         - Build the SimpleGain example plugin"
 	@echo "  make bundle       - Create VST3 bundle for SimpleGain"
+	@echo "  make install      - Install plugin to ~/.vst3 directory"
 	@echo "  make clean        - Remove all build artifacts"
 	@echo ""
 	@echo "Test targets:"
@@ -138,6 +147,6 @@ help:
 	@echo ""
 	@echo "  make help         - Show this help message"
 
-.PHONY: all gain bundle clean help \
+.PHONY: all gain bundle install clean help \
 	test test-go test-validate test-quick test-extensive \
 	test-local test-bundle test-list test-selftest test-all

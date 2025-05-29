@@ -1,6 +1,10 @@
 package vst3
 
 // #include "../../include/vst3/vst3_c_api.h"
+// 
+// static inline Steinberg_Vst_Sample32** getChannelBuffers32(struct Steinberg_Vst_AudioBusBuffers* buffers) {
+//     return buffers->Steinberg_Vst_AudioBusBuffers_channelBuffers32;
+// }
 import "C"
 import (
 	"unsafe"
@@ -26,13 +30,8 @@ func NewAudioBuffer(cBuffers *C.struct_Steinberg_Vst_AudioBusBuffers, numSamples
 	// Create Go slices for each channel
 	channelBuffers := make([][]float32, numChannels)
 	
-	// Access the channel buffer pointers through the union
-	// For CGO, we need to access the union as a byte array and cast it
-	// The union starts after numChannels (4 bytes) and silenceFlags (8 bytes)
-	unionPtr := unsafe.Pointer(uintptr(unsafe.Pointer(cBuffers)) + unsafe.Offsetof(cBuffers.silenceFlags) + 8)
-	
-	// Cast to Sample32** (we're assuming 32-bit samples for now)
-	channelBuffers32 := (**C.Steinberg_Vst_Sample32)(unionPtr)
+	// Access the channel buffer pointers through the union using helper function
+	channelBuffers32 := C.getChannelBuffers32(cBuffers)
 	
 	if channelBuffers32 != nil {
 		// Convert the double pointer to a slice of pointers
