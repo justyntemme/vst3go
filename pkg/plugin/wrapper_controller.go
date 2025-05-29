@@ -51,17 +51,14 @@ func GoEditControllerGetParameterCount(componentPtr unsafe.Pointer) C.int32_t {
 	id := uintptr(componentPtr)
 	wrapper := getComponent(id)
 	if wrapper == nil {
-		fmt.Printf("GoEditControllerGetParameterCount: wrapper is nil for id %v\n", id)
 		return 0
 	}
 	
 	if wrapper.component == nil {
-		fmt.Printf("GoEditControllerGetParameterCount: wrapper.component is nil\n")
 		return 0
 	}
 	
 	count := wrapper.component.GetParameterCount()
-	fmt.Printf("GoEditControllerGetParameterCount: returning %d parameters\n", count)
 	return C.int32_t(count)
 }
 
@@ -97,7 +94,29 @@ func GoEditControllerGetParameterInfo(componentPtr unsafe.Pointer, paramIndex C.
 
 //export GoEditControllerGetParamStringByValue
 func GoEditControllerGetParamStringByValue(componentPtr unsafe.Pointer, id C.Steinberg_Vst_ParamID, valueNormalized C.Steinberg_Vst_ParamValue, string *C.Steinberg_Vst_TChar) C.Steinberg_tresult {
-	// TODO: Implement parameter value to string conversion
+	idVal := uintptr(componentPtr)
+	wrapper := getComponent(idVal)
+	if wrapper == nil || string == nil {
+		return C.Steinberg_tresult(2)
+	}
+	
+	// Get string representation from component
+	str, err := wrapper.component.GetParamStringByValue(uint32(id), float64(valueNormalized))
+	if err != nil {
+		// If not implemented, format the plain value
+		plain := wrapper.component.NormalizedParamToPlain(uint32(id), float64(valueNormalized))
+		
+		// Get parameter info to check for units
+		paramInfo, err := wrapper.component.GetParameterInfo(findParameterIndex(wrapper.component, uint32(id)))
+		if err == nil && paramInfo.Units != "" {
+			str = formatValueWithUnit(plain, paramInfo.Units)
+		} else {
+			str = formatValue(plain)
+		}
+	}
+	
+	// Copy to VST3 string
+	copyStringToVST3String(str, string, 128)
 	return C.Steinberg_tresult(0)
 }
 
@@ -168,4 +187,30 @@ func GoEditControllerSetComponentHandler(componentPtr unsafe.Pointer, handler un
 func GoEditControllerCreateView(componentPtr unsafe.Pointer, name *C.char) unsafe.Pointer {
 	// No UI support yet
 	return nil
+}
+
+// Helper function to find parameter index by ID  
+func findParameterIndex(component Component, id uint32) int32 {
+	count := component.GetParameterCount()
+	for i := int32(0); i < count; i++ {
+		info, err := component.GetParameterInfo(i)
+		if err == nil && info.ID == id {
+			return i
+		}
+	}
+	return -1
+}
+
+// Helper function to format a value
+func formatValue(value float64) string {
+	// Format with appropriate precision
+	if value == float64(int(value)) {
+		return fmt.Sprintf("%.0f", value)
+	}
+	return fmt.Sprintf("%.2f", value)
+}
+
+// Helper function to format a value with unit
+func formatValueWithUnit(value float64, unit string) string {
+	return fmt.Sprintf("%s %s", formatValue(value), unit)
 }

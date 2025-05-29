@@ -1,6 +1,9 @@
 package main
 
+// #cgo CFLAGS: -I../../include
 // #include "../../include/vst3/vst3_c_api.h"
+// #include "../../bridge/bridge.c"
+// #include "../../bridge/component.c"
 import "C"
 import (
 	"math"

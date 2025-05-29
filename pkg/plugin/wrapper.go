@@ -10,7 +10,7 @@ import (
 	"sync"
 	"unsafe"
 	
-	_ "github.com/justyntemme/vst3go/pkg/vst3" // Used in component creation
+	"github.com/justyntemme/vst3go/pkg/vst3"
 )
 
 // componentWrapper wraps a Go component for C callbacks
@@ -236,4 +236,156 @@ func GoComponentSetActive(componentPtr unsafe.Pointer, state C.int32_t) C.Steinb
 		return C.Steinberg_tresult(1)
 	}
 	return C.Steinberg_tresult(0)
+}
+
+//export GoComponentSetState
+func GoComponentSetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
+	id := uintptr(componentPtr)
+	wrapper := getComponent(id)
+	if wrapper == nil {
+		return C.Steinberg_tresult(2)
+	}
+	
+	stream := vst3.NewStreamWrapper(state)
+	if stream == nil {
+		return C.Steinberg_tresult(2)
+	}
+	
+	// Read state data
+	stateData, err := readStateFromStream(stream, wrapper.component)
+	if err != nil {
+		return C.Steinberg_tresult(1)
+	}
+	
+	err = wrapper.component.SetState(stateData)
+	if err != nil {
+		return C.Steinberg_tresult(1)
+	}
+	return C.Steinberg_tresult(0)
+}
+
+//export GoComponentGetState
+func GoComponentGetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
+	id := uintptr(componentPtr)
+	wrapper := getComponent(id)
+	if wrapper == nil {
+		return C.Steinberg_tresult(2)
+	}
+	
+	stream := vst3.NewStreamWrapper(state)
+	if stream == nil {
+		return C.Steinberg_tresult(2)
+	}
+	
+	// Get state data
+	stateData, err := wrapper.component.GetState()
+	if err != nil {
+		return C.Steinberg_tresult(1)
+	}
+	
+	// Write state to stream
+	err = writeStateToStream(stream, stateData, wrapper.component)
+	if err != nil {
+		return C.Steinberg_tresult(1)
+	}
+	return C.Steinberg_tresult(0)
+}
+
+// Helper function to write state to stream
+func writeStateToStream(stream *vst3.StreamWrapper, stateData []byte, component Component) error {
+	// Write a simple header/version
+	if err := stream.WriteString("VST3GO_STATE_V1"); err != nil {
+		return err
+	}
+	
+	// Write parameter count
+	paramCount := component.GetParameterCount()
+	if err := stream.WriteInt32(paramCount); err != nil {
+		return err
+	}
+	
+	// Write each parameter value
+	for i := int32(0); i < paramCount; i++ {
+		info, err := component.GetParameterInfo(i)
+		if err != nil {
+			continue
+		}
+		
+		// Write parameter ID and value
+		if err := stream.WriteInt32(int32(info.ID)); err != nil {
+			return err
+		}
+		
+		value := component.GetParamNormalized(uint32(info.ID))
+		if err := stream.WriteFloat64(value); err != nil {
+			return err
+		}
+	}
+	
+	// Write any custom state data
+	if len(stateData) > 0 {
+		if err := stream.WriteInt32(int32(len(stateData))); err != nil {
+			return err
+		}
+		_, err := stream.Write(stateData)
+		return err
+	} else {
+		// No custom data
+		return stream.WriteInt32(0)
+	}
+}
+
+// Helper function to read state from stream
+func readStateFromStream(stream *vst3.StreamWrapper, component Component) ([]byte, error) {
+	// Read and verify header
+	header, err := stream.ReadString()
+	if err != nil {
+		return nil, err
+	}
+	if header != "VST3GO_STATE_V1" {
+		return nil, vst3.ErrNotImplemented
+	}
+	
+	// Read parameter count
+	paramCount, err := stream.ReadInt32()
+	if err != nil {
+		return nil, err
+	}
+	
+	// Read each parameter value
+	for i := int32(0); i < paramCount; i++ {
+		paramID, err := stream.ReadInt32()
+		if err != nil {
+			return nil, err
+		}
+		
+		value, err := stream.ReadFloat64()
+		if err != nil {
+			return nil, err
+		}
+		
+		// Set parameter value
+		component.SetParamNormalized(uint32(paramID), value)
+	}
+	
+	// Read custom state data length
+	customDataLen, err := stream.ReadInt32()
+	if err != nil {
+		return nil, err
+	}
+	
+	if customDataLen > 0 {
+		// Read custom data
+		customData := make([]byte, customDataLen)
+		n, err := stream.Read(customData)
+		if err != nil {
+			return nil, err
+		}
+		if n != customDataLen {
+			return nil, vst3.ErrNotImplemented
+		}
+		return customData, nil
+	}
+	
+	return nil, nil
 }

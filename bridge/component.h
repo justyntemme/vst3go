@@ -15,6 +15,8 @@ extern int32_t GoComponentGetBusCount(void* component, int32_t type, int32_t dir
 extern Steinberg_tresult GoComponentGetBusInfo(void* component, int32_t type, int32_t dir, int32_t index, void* bus);
 extern Steinberg_tresult GoComponentActivateBus(void* component, int32_t type, int32_t dir, int32_t index, int32_t state);
 extern Steinberg_tresult GoComponentSetActive(void* component, int32_t state);
+extern Steinberg_tresult GoComponentSetState(void* component, void* state);
+extern Steinberg_tresult GoComponentGetState(void* component, void* state);
 
 // Go callback declarations for IAudioProcessor
 extern Steinberg_tresult GoAudioSetBusArrangements(void* component, void* inputs, int32_t numIns, void* outputs, int32_t numOuts);

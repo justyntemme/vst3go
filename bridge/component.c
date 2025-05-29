@@ -250,13 +250,13 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_setActive(void* thisIn
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_setState(void* thisInterface, struct Steinberg_IBStream* state) {
-    // TODO: Implement state handling
-    return ((Steinberg_tresult)0);
+    Component* component = (Component*)thisInterface;
+    return GoComponentSetState(component->goComponent, state);
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_getState(void* thisInterface, struct Steinberg_IBStream* state) {
-    // TODO: Implement state handling
-    return ((Steinberg_tresult)0);
+    Component* component = (Component*)thisInterface;
+    return GoComponentGetState(component->goComponent, state);
 }
 
 // IAudioProcessor IUnknown implementation
@@ -406,5 +406,5 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_setComponentHandler(v
 
 static struct Steinberg_IPlugView* SMTG_STDMETHODCALLTYPE controller_createView(void* thisInterface, Steinberg_FIDString name) {
     EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
-    return GoEditControllerCreateView(controller->component->goComponent, name);
+    return GoEditControllerCreateView(controller->component->goComponent, (char*)name);
 }

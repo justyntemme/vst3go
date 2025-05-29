@@ -30,32 +30,14 @@ all: gain
 # Build gain example
 gain: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
 
-# Build Go shared library for a specific example
-$(BUILD_DIR)/lib%.$(SO_EXT): examples/%/main.go
+# Build SimpleGain plugin as a single shared library
+$(BUILD_DIR)/SimpleGain.$(SO_EXT): examples/gain/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
 	@mkdir -p $(BUILD_DIR)
-	@echo "Building Go plugin: $*"
-	go build -buildmode=c-shared -o $@ ./examples/$*
-
-# Build C bridge objects
-$(BUILD_DIR)/bridge.o: $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/bridge.h
-	@mkdir -p $(BUILD_DIR)
-	@echo "Building C bridge"
-	gcc $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/component.o: $(BRIDGE_DIR)/component.c $(BRIDGE_DIR)/component.h
-	@mkdir -p $(BUILD_DIR)
-	@echo "Building C component"
-	gcc $(CFLAGS) -c $< -o $@
-
-# Link VST3 plugin as .so file
-$(BUILD_DIR)/%.$(SO_EXT): $(BUILD_DIR)/bridge.o $(BUILD_DIR)/component.o $(BUILD_DIR)/lib%.$(SO_EXT)
-	@echo "Linking VST3 plugin: $*"
-	gcc $(LDFLAGS) -o $@ $(BUILD_DIR)/bridge.o $(BUILD_DIR)/component.o -L$(BUILD_DIR) -l$* $(RPATH_FLAG)
-
-# Specific target for SimpleGain
-$(BUILD_DIR)/SimpleGain.$(SO_EXT): $(BUILD_DIR)/bridge.o $(BUILD_DIR)/component.o $(BUILD_DIR)/libgain.$(SO_EXT)
-	@echo "Linking SimpleGain VST3 plugin"
-	gcc $(LDFLAGS) -o $@ $(BUILD_DIR)/bridge.o $(BUILD_DIR)/component.o -L$(BUILD_DIR) -lgain $(RPATH_FLAG)
+	@echo "Building SimpleGain VST3 plugin as single library"
+	CGO_CFLAGS="-I./include" CGO_LDFLAGS="" go build -buildmode=c-shared \
+		-o $@ \
+		-ldflags="-s -w" \
+		./examples/gain
 
 # Create VST3 bundle
 bundle: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
@@ -63,7 +45,7 @@ bundle: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
 	@rm -rf $(BUILD_DIR)/$(PLUGIN_NAME).vst3
 	@mkdir -p $(BUILD_DIR)/$(PLUGIN_NAME).vst3/Contents/$(VST3_ARCH)
 	@cp $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT) $(BUILD_DIR)/$(PLUGIN_NAME).vst3/Contents/$(VST3_ARCH)/
-	@cp $(BUILD_DIR)/libgain.$(SO_EXT) $(BUILD_DIR)/$(PLUGIN_NAME).vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/$(PLUGIN_NAME).vst3/Contents/$(VST3_ARCH)/$(PLUGIN_NAME).$(SO_EXT)
 	@echo "VST3 bundle created: $(BUILD_DIR)/$(PLUGIN_NAME).vst3"
 
 # Install VST3 plugin to user's VST3 directory
