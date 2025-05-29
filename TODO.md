@@ -4,187 +4,182 @@
 
 VST3Go aims to create a Go wrapper for the VST3 C API, enabling developers to build VST3 plugins in Go. This guide outlines the minimal viable product (MVP) implementation strategy.
 
+## Current Status (Updated based on test results)
+
+### ✅ Completed
+- Phase 1: Project setup with Go modules, Makefile, and directory structure
+- Phase 2: C Bridge with factory, reference counting, and interface routing
+- Phase 3: Go VST3 bindings with structs and wrappers
+- Phase 4: Plugin framework with component interfaces and parameter management
+- Phase 5: Build system with Linux support and VST3 bundle creation
+- Basic validation test integration
+
+### 🚧 In Progress
+- Component creation works but IPluginBase methods need implementation
+- Memory management using handle-based approach to avoid CGO pointer issues
+
+### ❌ Issues Found
+- Segmentation fault when validator tries to call IPluginBase methods
+- Need proper vtable structure for component interfaces
+
 ## Architecture Overview
 
-Based on the VST3 C API analysis and common practices for C/Go audio plugin development, we'll use a hybrid approach:
+Based on implementation experience:
 
-1. **C Bridge Layer**: Minimal C code that implements VST3 entry points and forwards to Go
-2. **Go Plugin Core**: Main plugin logic, DSP, and parameter management in Go
-3. **Shared Library**: Compile Go as a shared library, link with C bridge
-4. **VST3 Bundle**: Package as proper .vst3 format (platform-specific)
+1. **C Bridge Layer**: Implements VST3 entry points, vtables, and forwards to Go
+2. **Go Plugin Core**: Plugin logic, DSP, and parameter management 
+3. **Handle-based Memory**: Use integer handles instead of pointers for C/Go boundary
+4. **VST3 Bundle**: Linux .vst3 bundle structure working
 
-## Key VST3 Interfaces to Implement
+## Key Learnings from Validator Tests
 
-### 1. Core Interfaces (Required)
-- `Steinberg_IPluginFactory` - Plugin factory for creating instances
-- `Steinberg_Vst_IComponent` - Main plugin component
-- `Steinberg_Vst_IAudioProcessor` - Audio processing interface
-- `Steinberg_FUnknown` - COM-style base interface
+### Critical Requirements
+1. **IPluginBase Interface**: MUST be properly implemented in component vtable
+   - `initialize()` and `terminate()` are called immediately after creation
+   - Segfault indicates vtable structure issue
 
-### 2. Additional Interfaces (MVP)
-- `Steinberg_Vst_IEditController` - Parameter control (can be same object as IComponent)
-- `Steinberg_IPluginBase` - Plugin initialization
+2. **Memory Management**: 
+   - Cannot pass Go pointers to C that contain Go pointers
+   - Solution: Use handle/ID system with global registry
 
-## Implementation Tasks
+3. **Interface Querying**:
+   - Factory's `createInstance` should accept any IID
+   - Component's `queryInterface` handles specific interface requests
+   - Must support IComponent, IAudioProcessor, and IEditController
 
-### Phase 1: Project Setup
-- [ ] Set up Go module structure
-- [ ] Create build system (Makefile/CMake)
-- [ ] Set up CGO configuration
-- [ ] Create directory structure:
+## Updated Implementation Tasks
+
+### Phase 7: Fix IPluginBase Implementation
+- [x] Component vtable must include IPluginBase methods first
+- [ ] Ensure proper vtable ordering:
   ```
-  /bridge/        # C bridge code
-  /pkg/vst3/      # Go VST3 bindings
-  /pkg/plugin/    # Plugin interface
-  /examples/      # Example plugins
-  /build/         # Build output
+  IUnknown methods (queryInterface, addRef, release)
+  IPluginBase methods (initialize, terminate)
+  IComponent methods (getControllerClassId, setIoMode, etc.)
   ```
+- [ ] Fix segfault in component initialization
 
-### Phase 2: C Bridge Implementation
-- [ ] Create `bridge.c` with VST3 entry points:
-  - [ ] `GetPluginFactory` export function
-  - [ ] Factory implementation that calls into Go
-  - [ ] COM-style vtable setup for interfaces
-- [ ] Create `bridge.h` with function declarations
-- [ ] Implement reference counting in C
-- [ ] Set up interface query routing to Go
+### Phase 8: Complete Component Implementation  
+- [ ] Implement state save/restore (setState/getState)
+- [ ] Add proper IEditController vtable if component acts as controller
+- [ ] Implement all parameter-related callbacks
+- [ ] Add bus arrangement negotiation
 
-### Phase 3: Go VST3 Bindings
-- [ ] Create Go structs matching VST3 C structures:
-  - [ ] `ProcessData` wrapper
-  - [ ] `AudioBusBuffers` wrapper
-  - [ ] `ParameterInfo` wrapper
-  - [ ] Interface vtables
-- [ ] Implement Go functions for each VST3 interface method
-- [ ] Create safe wrappers for unsafe pointers
-- [ ] Handle memory management across C/Go boundary
+### Phase 9: Audio Processing
+- [ ] Implement actual DSP in Process callback
+- [ ] Handle different sample formats (32/64 bit)
+- [ ] Implement proper bus handling
+- [ ] Add parameter smoothing
 
-### Phase 4: Plugin Framework
-- [ ] Define Go plugin interface:
-  ```go
-  type Plugin interface {
-      GetInfo() PluginInfo
-      Process(input, output [][]float32) error
-      GetParameterCount() int
-      GetParameterInfo(index int) ParameterInfo
-      // etc.
-  }
-  ```
-- [ ] Implement base plugin struct with VST3 integration
-- [ ] Create parameter management system
-- [ ] Add audio buffer handling utilities
+### Phase 10: Validation & Testing
+- [ ] Pass basic validator tests:
+  - [ ] Component creation
+  - [ ] Initialize/Terminate cycle
+  - [ ] Bus configuration
+  - [ ] Parameter enumeration
+  - [ ] Basic audio processing
+- [ ] Create automated test suite
+- [ ] Add example plugins (gain, delay, filter)
 
-### Phase 5: Build System
-- [ ] Create Makefile with targets:
-  - [ ] `build-go`: Compile Go to shared library
-  - [ ] `build-bridge`: Compile C bridge
-  - [ ] `link`: Link everything into .vst3
-  - [ ] `bundle`: Create VST3 bundle structure
-- [ ] Handle platform differences (Linux/macOS/Windows)
-- [ ] Add cross-compilation support
+## Technical Fixes Needed
 
-### Phase 6: Example Plugin
-- [ ] Create simple gain plugin as example
-- [ ] Implement all required interfaces
-- [ ] Add basic parameter (gain control)
-- [ ] Test audio processing
+### Immediate Fixes
+1. **Component VTable Structure**:
+   ```c
+   struct ComponentVtbl {
+       // IUnknown
+       queryInterface, addRef, release
+       // IPluginBase  
+       initialize, terminate
+       // IComponent
+       getControllerClassId, setIoMode, ...
+   }
+   ```
 
-## Technical Considerations
+2. **Handle System Enhancement**:
+   - Add error handling for invalid handles
+   - Implement handle cleanup on component destruction
+   - Add concurrent access protection
 
-### Memory Management
-- Use C.malloc/C.free for memory crossing boundaries
-- Implement proper reference counting
-- Be careful with Go garbage collector and C pointers
-- Pin Go memory when passing to C
+3. **Error Reporting**:
+   - Add logging to C bridge for debugging
+   - Implement proper error code returns
+   - Add panic recovery in Go callbacks
 
-### Threading
-- VST3 has specific threading requirements
-- Audio processing happens on real-time thread
-- Use atomic operations for parameter access
-- Avoid allocations in process callback
-
-### Build Process
-```bash
-# 1. Build Go shared library
-go build -buildmode=c-shared -o libvst3go.so ./cmd/plugin
-
-# 2. Compile C bridge
-gcc -c -fPIC -o bridge.o bridge/bridge.c
-
-# 3. Link final plugin
-gcc -shared -o plugin.vst3 bridge.o -L. -lvst3go -Wl,-rpath,'$ORIGIN'
-
-# 4. Create bundle structure
-mkdir -p plugin.vst3/Contents/x86_64-linux
-mv plugin.vst3 plugin.vst3/Contents/x86_64-linux/
+### Memory Management Strategy
+```go
+// Current working approach:
+type ComponentRegistry struct {
+    components map[uintptr]*componentWrapper
+    mu         sync.RWMutex
+    nextID     uintptr
+}
 ```
 
-### Platform Specifics
-- **Linux**: .so files, specific rpath handling
-- **macOS**: .dylib files, bundle structure, code signing
-- **Windows**: .dll files, different calling conventions
+### Build System Enhancements
+- Add debug build target with symbols
+- Add sanitizer support for memory debugging  
+- Create test harness for validator automation
 
-## MVP Feature Set
+## Validator Test Results Summary
 
-### Must Have
-- [ ] Basic audio processing (stereo in/out)
-- [ ] Factory and component creation
-- [ ] Initialize/terminate lifecycle
-- [ ] Process callback implementation
-- [ ] Minimal parameter support (at least one parameter)
-- [ ] Proper reference counting
-- [ ] State save/load
+### What Works
+- ✅ Module loads successfully
+- ✅ Factory is found and queried
+- ✅ Plugin information is retrieved correctly
+- ✅ Component instance is created
 
-### Nice to Have
-- [ ] MIDI event processing
-- [ ] Multiple bus support
-- [ ] Advanced parameter features
-- [ ] UI support (via IPlugView)
-- [ ] Preset management
+### What Fails
+- ❌ IPluginBase methods cause segfault
+- ❌ No audio processing tests pass yet
+- ❌ Parameter system not fully tested
+- ❌ State persistence not implemented
 
-## Testing Strategy
+## Next Steps Priority Order
 
-1. **Unit Tests**: Test Go components in isolation
-2. **Integration Tests**: Test C/Go boundary
-3. **Plugin Validation**: Use VST3 validator tool
-4. **Host Testing**: Test in common DAWs (Reaper, Bitwig, etc.)
+1. Fix component vtable structure to prevent segfault
+2. Implement missing IPluginBase methods properly
+3. Add debug logging to identify exact failure points
+4. Implement minimal state save/restore
+5. Get first validator test to pass
+6. Iterate on remaining tests
 
-## Known Challenges
+## Success Metrics
 
-1. **COM-style Interfaces**: VST3 uses COM-style vtables which need careful mapping
-2. **Real-time Constraints**: Audio callback must be real-time safe
-3. **Memory Management**: Complex due to C/Go boundary
-4. **Platform Differences**: Each OS has different requirements
-5. **Bundle Format**: VST3 uses specific directory structure
+### MVP Goals
+- [ ] Pass validator without segfaults
+- [ ] Successfully initialize and terminate component
+- [ ] Process audio without crashes
+- [ ] Save and restore plugin state
+- [ ] Work in at least one DAW (Reaper recommended for testing)
 
-## Next Steps
+### Stretch Goals  
+- [ ] Full parameter automation support
+- [ ] MIDI input handling
+- [ ] Multiple bus configurations
+- [ ] Cross-platform support (Windows, macOS)
+- [ ] UI integration support
 
-1. Set up basic project structure
-2. Implement minimal C bridge with factory export
-3. Create Go bindings for core interfaces
-4. Build simple gain plugin as proof of concept
-5. Test in VST3 host
-6. Iterate and expand functionality
-
-## Resources
+## Resources & References
 
 - [VST3 SDK Documentation](https://steinbergmedia.github.io/vst3_dev_portal/)
 - [VST3 C API Header](./include/vst3/vst3_c_api.h)
-- CGO Documentation
-- VST3 Validator Tool
+- CGO Documentation - especially pointer passing rules
+- VST3 Validator output logs in test_results.txt
 
-## Open Questions
+## Debugging Commands
 
-1. Should we embed Go runtime or link dynamically?
-2. How to handle platform-specific UI integration?
-3. Best approach for preset/state serialization?
-4. Performance implications of C/Go boundary in audio callback?
+```bash
+# Run validator with verbose output
+make test-validate 2>&1 | tee debug.log
 
-## Success Criteria
+# Check exported symbols
+nm -D build/SimpleGain.so | grep -E "(component|factory)"
 
-- [ ] Can build a working .vst3 plugin
-- [ ] Plugin loads in major DAWs
-- [ ] Audio processes without glitches
-- [ ] Parameters work correctly
-- [ ] State persistence works
-- [ ] Cross-platform build works
+# Run with GDB
+gdb validator
+run -q build/SimpleGain.vst3
+
+# Check for memory issues
+valgrind validator build/SimpleGain.vst3
+```
