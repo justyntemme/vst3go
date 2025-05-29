@@ -11,12 +11,20 @@ typedef struct {
     Component* component;
 } AudioProcessorInterface;
 
+// Edit controller interface wrapper
+typedef struct {
+    struct Steinberg_Vst_IEditControllerVtbl* lpVtbl;
+    Component* component;
+} EditControllerInterface;
+
 // Component implementation that wraps Go component
 struct Component {
     // IComponent vtable pointer must be first for COM compatibility
     struct Steinberg_Vst_IComponentVtbl* lpVtbl;
     // Audio processor interface
     AudioProcessorInterface audioProcessor;
+    // Edit controller interface
+    EditControllerInterface editController;
     // Reference count
     int refCount;
     // Go component handle
@@ -54,6 +62,30 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_setProcessing(void* thisIn
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_process(void* thisInterface, struct Steinberg_Vst_ProcessData* data);
 static Steinberg_uint32 SMTG_STDMETHODCALLTYPE audio_getTailSamples(void* thisInterface);
 
+// Forward declarations for IEditController IUnknown methods
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_queryInterface(void* thisInterface, const Steinberg_TUID iid, void** obj);
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE controller_addRef(void* thisInterface);
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE controller_release(void* thisInterface);
+
+// Forward declarations for IEditController IPluginBase methods
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_initialize(void* thisInterface, struct Steinberg_FUnknown* context);
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_terminate(void* thisInterface);
+
+// Forward declarations for IEditController methods
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_setComponentState(void* thisInterface, struct Steinberg_IBStream* state);
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_setState(void* thisInterface, struct Steinberg_IBStream* state);
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_getState(void* thisInterface, struct Steinberg_IBStream* state);
+static Steinberg_int32 SMTG_STDMETHODCALLTYPE controller_getParameterCount(void* thisInterface);
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_getParameterInfo(void* thisInterface, Steinberg_int32 paramIndex, struct Steinberg_Vst_ParameterInfo* info);
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_getParamStringByValue(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue valueNormalized, Steinberg_Vst_String128 string);
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_getParamValueByString(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_TChar* string, Steinberg_Vst_ParamValue* valueNormalized);
+static Steinberg_Vst_ParamValue SMTG_STDMETHODCALLTYPE controller_normalizedParamToPlain(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue valueNormalized);
+static Steinberg_Vst_ParamValue SMTG_STDMETHODCALLTYPE controller_plainParamToNormalized(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue plainValue);
+static Steinberg_Vst_ParamValue SMTG_STDMETHODCALLTYPE controller_getParamNormalized(void* thisInterface, Steinberg_Vst_ParamID id);
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_setParamNormalized(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue value);
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_setComponentHandler(void* thisInterface, struct Steinberg_Vst_IComponentHandler* handler);
+static struct Steinberg_IPlugView* SMTG_STDMETHODCALLTYPE controller_createView(void* thisInterface, Steinberg_FIDString name);
+
 // IComponent vtable
 static struct Steinberg_Vst_IComponentVtbl componentVtbl = {
     component_queryInterface,
@@ -87,6 +119,28 @@ static struct Steinberg_Vst_IAudioProcessorVtbl audioProcessorVtbl = {
     audio_getTailSamples
 };
 
+// IEditController vtable
+static struct Steinberg_Vst_IEditControllerVtbl editControllerVtbl = {
+    controller_queryInterface,
+    controller_addRef,
+    controller_release,
+    controller_initialize,
+    controller_terminate,
+    controller_setComponentState,
+    controller_setState,
+    controller_getState,
+    controller_getParameterCount,
+    controller_getParameterInfo,
+    controller_getParamStringByValue,
+    controller_getParamValueByString,
+    controller_normalizedParamToPlain,
+    controller_plainParamToNormalized,
+    controller_getParamNormalized,
+    controller_setParamNormalized,
+    controller_setComponentHandler,
+    controller_createView
+};
+
 // Create a new component instance
 void* createComponent(void* goComponent) {
     Component* component = (Component*)malloc(sizeof(Component));
@@ -95,6 +149,8 @@ void* createComponent(void* goComponent) {
     component->lpVtbl = &componentVtbl;
     component->audioProcessor.lpVtbl = &audioProcessorVtbl;
     component->audioProcessor.component = component;
+    component->editController.lpVtbl = &editControllerVtbl;
+    component->editController.component = component;
     component->refCount = 1;
     component->goComponent = goComponent;
     
@@ -119,11 +175,10 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_queryInterface(void* t
         return ((Steinberg_tresult)0);
     }
     
-    // For now, return not implemented for IEditController
-    // TODO: Implement IEditController interface properly
     if (memcmp(iid, Steinberg_Vst_IEditController_iid, sizeof(Steinberg_TUID)) == 0) {
-        *obj = NULL;
-        return ((Steinberg_tresult)-1);
+        *obj = &component->editController; // Return edit controller interface
+        component_addRef(thisInterface);
+        return ((Steinberg_tresult)0);
     }
     
     *obj = NULL;
@@ -259,4 +314,97 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE audio_process(void* thisInterfac
 static Steinberg_uint32 SMTG_STDMETHODCALLTYPE audio_getTailSamples(void* thisInterface) {
     AudioProcessorInterface* audioProc = (AudioProcessorInterface*)thisInterface;
     return GoAudioGetTailSamples(audioProc->component->goComponent);
+}
+
+// IEditController IUnknown implementation
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_queryInterface(void* thisInterface, const Steinberg_TUID iid, void** obj) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return component_queryInterface(controller->component, iid, obj);
+}
+
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE controller_addRef(void* thisInterface) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return component_addRef(controller->component);
+}
+
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE controller_release(void* thisInterface) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return component_release(controller->component);
+}
+
+// IEditController IPluginBase implementation
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_initialize(void* thisInterface, struct Steinberg_FUnknown* context) {
+    // Already initialized as component
+    return ((Steinberg_tresult)0);
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_terminate(void* thisInterface) {
+    // Will be terminated as component
+    return ((Steinberg_tresult)0);
+}
+
+// IEditController implementation
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_setComponentState(void* thisInterface, struct Steinberg_IBStream* state) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerSetComponentState(controller->component->goComponent, state);
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_setState(void* thisInterface, struct Steinberg_IBStream* state) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerSetState(controller->component->goComponent, state);
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_getState(void* thisInterface, struct Steinberg_IBStream* state) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerGetState(controller->component->goComponent, state);
+}
+
+static Steinberg_int32 SMTG_STDMETHODCALLTYPE controller_getParameterCount(void* thisInterface) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerGetParameterCount(controller->component->goComponent);
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_getParameterInfo(void* thisInterface, Steinberg_int32 paramIndex, struct Steinberg_Vst_ParameterInfo* info) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerGetParameterInfo(controller->component->goComponent, paramIndex, info);
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_getParamStringByValue(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue valueNormalized, Steinberg_Vst_String128 string) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerGetParamStringByValue(controller->component->goComponent, id, valueNormalized, string);
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_getParamValueByString(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_TChar* string, Steinberg_Vst_ParamValue* valueNormalized) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerGetParamValueByString(controller->component->goComponent, id, string, valueNormalized);
+}
+
+static Steinberg_Vst_ParamValue SMTG_STDMETHODCALLTYPE controller_normalizedParamToPlain(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue valueNormalized) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerNormalizedParamToPlain(controller->component->goComponent, id, valueNormalized);
+}
+
+static Steinberg_Vst_ParamValue SMTG_STDMETHODCALLTYPE controller_plainParamToNormalized(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue plainValue) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerPlainParamToNormalized(controller->component->goComponent, id, plainValue);
+}
+
+static Steinberg_Vst_ParamValue SMTG_STDMETHODCALLTYPE controller_getParamNormalized(void* thisInterface, Steinberg_Vst_ParamID id) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerGetParamNormalized(controller->component->goComponent, id);
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_setParamNormalized(void* thisInterface, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue value) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerSetParamNormalized(controller->component->goComponent, id, value);
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE controller_setComponentHandler(void* thisInterface, struct Steinberg_Vst_IComponentHandler* handler) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerSetComponentHandler(controller->component->goComponent, handler);
+}
+
+static struct Steinberg_IPlugView* SMTG_STDMETHODCALLTYPE controller_createView(void* thisInterface, Steinberg_FIDString name) {
+    EditControllerInterface* controller = (EditControllerInterface*)thisInterface;
+    return GoEditControllerCreateView(controller->component->goComponent, name);
 }
