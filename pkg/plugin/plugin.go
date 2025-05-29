@@ -77,22 +77,3 @@ func GoGetClassInfo(index C.int32_t, cid *C.char, cardinality *C.int32_t, catego
 	C.strcpy(name, C.CString(globalPlugin.GetPluginName()))
 }
 
-//export GoCreateInstance
-func GoCreateInstance(cid, iid *C.char) unsafe.Pointer {
-	if globalPlugin == nil {
-		return nil
-	}
-	
-	// Check if the class ID matches our plugin
-	var requestedCID [16]byte
-	C.memcpy(unsafe.Pointer(&requestedCID[0]), unsafe.Pointer(cid), 16)
-	
-	pluginUID := globalPlugin.GetUID()
-	if requestedCID != pluginUID {
-		return nil
-	}
-	
-	// Create component instance
-	// For now, return nil - will implement component wrapper later
-	return nil
-}

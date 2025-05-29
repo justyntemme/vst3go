@@ -36,21 +36,26 @@ $(BUILD_DIR)/lib%.$(SO_EXT): examples/%/main.go
 	@echo "Building Go plugin: $*"
 	go build -buildmode=c-shared -o $@ ./examples/$*
 
-# Build C bridge
+# Build C bridge objects
 $(BUILD_DIR)/bridge.o: $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/bridge.h
 	@mkdir -p $(BUILD_DIR)
 	@echo "Building C bridge"
 	gcc $(CFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/component.o: $(BRIDGE_DIR)/component.c $(BRIDGE_DIR)/component.h
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building C component"
+	gcc $(CFLAGS) -c $< -o $@
+
 # Link VST3 plugin as .so file
-$(BUILD_DIR)/%.$(SO_EXT): $(BUILD_DIR)/bridge.o $(BUILD_DIR)/lib%.$(SO_EXT)
+$(BUILD_DIR)/%.$(SO_EXT): $(BUILD_DIR)/bridge.o $(BUILD_DIR)/component.o $(BUILD_DIR)/lib%.$(SO_EXT)
 	@echo "Linking VST3 plugin: $*"
-	gcc $(LDFLAGS) -o $@ $(BUILD_DIR)/bridge.o -L$(BUILD_DIR) -l$* $(RPATH_FLAG)
+	gcc $(LDFLAGS) -o $@ $(BUILD_DIR)/bridge.o $(BUILD_DIR)/component.o -L$(BUILD_DIR) -l$* $(RPATH_FLAG)
 
 # Specific target for SimpleGain
-$(BUILD_DIR)/SimpleGain.$(SO_EXT): $(BUILD_DIR)/bridge.o $(BUILD_DIR)/libgain.$(SO_EXT)
+$(BUILD_DIR)/SimpleGain.$(SO_EXT): $(BUILD_DIR)/bridge.o $(BUILD_DIR)/component.o $(BUILD_DIR)/libgain.$(SO_EXT)
 	@echo "Linking SimpleGain VST3 plugin"
-	gcc $(LDFLAGS) -o $@ $(BUILD_DIR)/bridge.o -L$(BUILD_DIR) -lgain $(RPATH_FLAG)
+	gcc $(LDFLAGS) -o $@ $(BUILD_DIR)/bridge.o $(BUILD_DIR)/component.o -L$(BUILD_DIR) -lgain $(RPATH_FLAG)
 
 # Create VST3 bundle
 bundle: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)

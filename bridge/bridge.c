@@ -1,6 +1,8 @@
 #include "bridge.h"
+#include "component.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 // Reference counting for our factory
 typedef struct {
@@ -61,11 +63,7 @@ int ModuleEntry(void* sharedLibraryHandle) {
 
 __attribute__((visibility("default")))
 int ModuleExit() {
-    // Module cleanup
-    if (globalFactory && globalFactory->refCount == 1) {
-        free(globalFactory);
-        globalFactory = NULL;
-    }
+    // Module cleanup - don't free the factory here as it has its own reference counting
     moduleInitialized = 0;
     return 1; // true
 }
@@ -77,10 +75,10 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE factory_queryInterface(void* thi
         memcmp(iid, Steinberg_IPluginFactory_iid, sizeof(Steinberg_TUID)) == 0) {
         *obj = thisInterface;
         factory_addRef(thisInterface);
-        return Steinberg_kResultOk;
+        return ((Steinberg_tresult)0);
     }
     *obj = NULL;
-    return Steinberg_kNoInterface;
+    return ((Steinberg_tresult)-1);
 }
 
 static Steinberg_uint32 SMTG_STDMETHODCALLTYPE factory_addRef(void* thisInterface) {
@@ -100,7 +98,7 @@ static Steinberg_uint32 SMTG_STDMETHODCALLTYPE factory_release(void* thisInterfa
 // IPluginFactory implementation - these will call into Go
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE factory_getFactoryInfo(void* thisInterface, struct Steinberg_PFactoryInfo* info) {
     GoGetFactoryInfo(info->vendor, info->url, info->email, &info->flags);
-    return Steinberg_kResultOk;
+    return ((Steinberg_tresult)0);
 }
 
 static Steinberg_int32 SMTG_STDMETHODCALLTYPE factory_countClasses(void* thisInterface) {
@@ -109,14 +107,20 @@ static Steinberg_int32 SMTG_STDMETHODCALLTYPE factory_countClasses(void* thisInt
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE factory_getClassInfo(void* thisInterface, Steinberg_int32 index, struct Steinberg_PClassInfo* info) {
     if (index >= GoCountClasses()) {
-        return Steinberg_kResultFalse;
+        return ((Steinberg_tresult)1);
     }
     GoGetClassInfo(index, (char*)info->cid, &info->cardinality, info->category, info->name);
-    return Steinberg_kResultOk;
+    return ((Steinberg_tresult)0);
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE factory_createInstance(void* thisInterface, Steinberg_FIDString cid, Steinberg_FIDString iid, void** obj) {
-    // Will create plugin instance - for now return not implemented
-    *obj = NULL;
-    return Steinberg_kNotImplemented;
+    // Create instance through Go
+    void* instance = GoCreateInstance(cid, iid);
+    if (!instance) {
+        *obj = NULL;
+        return ((Steinberg_tresult)-1); // kNoInterface
+    }
+    
+    *obj = instance;
+    return ((Steinberg_tresult)0);
 }
