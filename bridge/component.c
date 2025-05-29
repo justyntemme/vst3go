@@ -119,12 +119,11 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_queryInterface(void* t
         return ((Steinberg_tresult)0);
     }
     
-    // For now, also return the component for IEditController requests
-    // In a full implementation, this might be a separate object
+    // For now, return not implemented for IEditController
+    // TODO: Implement IEditController interface properly
     if (memcmp(iid, Steinberg_Vst_IEditController_iid, sizeof(Steinberg_TUID)) == 0) {
-        *obj = component;
-        component_addRef(thisInterface);
-        return ((Steinberg_tresult)0);
+        *obj = NULL;
+        return ((Steinberg_tresult)-1);
     }
     
     *obj = NULL;

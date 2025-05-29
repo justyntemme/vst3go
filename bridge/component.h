@@ -26,6 +26,21 @@ extern Steinberg_tresult GoAudioSetProcessing(void* component, int32_t state);
 extern Steinberg_tresult GoAudioProcess(void* component, void* data);
 extern uint32_t GoAudioGetTailSamples(void* component);
 
+// Go callback declarations for IEditController
+extern Steinberg_tresult GoEditControllerSetComponentState(void* component, void* state);
+extern Steinberg_tresult GoEditControllerSetState(void* component, void* state);
+extern Steinberg_tresult GoEditControllerGetState(void* component, void* state);
+extern int32_t GoEditControllerGetParameterCount(void* component);
+extern Steinberg_tresult GoEditControllerGetParameterInfo(void* component, int32_t paramIndex, struct Steinberg_Vst_ParameterInfo* info);
+extern Steinberg_tresult GoEditControllerGetParamStringByValue(void* component, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue valueNormalized, Steinberg_Vst_TChar* string);
+extern Steinberg_tresult GoEditControllerGetParamValueByString(void* component, Steinberg_Vst_ParamID id, Steinberg_Vst_TChar* string, Steinberg_Vst_ParamValue* valueNormalized);
+extern double GoEditControllerNormalizedParamToPlain(void* component, uint32_t id, double valueNormalized);
+extern double GoEditControllerPlainParamToNormalized(void* component, uint32_t id, double plainValue);
+extern double GoEditControllerGetParamNormalized(void* component, uint32_t id);
+extern Steinberg_tresult GoEditControllerSetParamNormalized(void* component, uint32_t id, double value);
+extern Steinberg_tresult GoEditControllerSetComponentHandler(void* component, void* handler);
+extern void* GoEditControllerCreateView(void* component, char* name);
+
 // Go component lifecycle
 extern void GoReleaseComponent(void* component);
 
