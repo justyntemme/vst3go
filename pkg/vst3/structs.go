@@ -16,32 +16,32 @@ type AudioBusBuffers struct {
 
 // ProcessSetup contains audio processing configuration
 type ProcessSetup struct {
-	ProcessMode     int32
+	ProcessMode        int32
 	SymbolicSampleSize int32
 	MaxSamplesPerBlock int32
-	SampleRate      float64
+	SampleRate         float64
 }
 
 // ParameterInfo describes a parameter
 type ParameterInfo struct {
-	ID            uint32
-	Title         string
-	ShortTitle    string
-	Units         string
-	StepCount     int32
-	DefaultValue  float64
-	UnitID        int32
-	Flags         int32
+	ID           uint32
+	Title        string
+	ShortTitle   string
+	Units        string
+	StepCount    int32
+	DefaultValue float64
+	UnitID       int32
+	Flags        int32
 }
 
 // BusInfo describes an audio bus
 type BusInfo struct {
-	MediaType     int32
-	Direction     int32
-	ChannelCount  int32
-	Name          string
-	BusType       int32
-	Flags         uint32
+	MediaType    int32
+	Direction    int32
+	ChannelCount int32
+	Name         string
+	BusType      int32
+	Flags        uint32
 }
 
 // Constants for media types
@@ -64,10 +64,10 @@ const (
 
 // Constants for parameter flags
 const (
-	ParameterIsReadOnly = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kIsReadOnly
+	ParameterIsReadOnly   = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kIsReadOnly
 	ParameterIsWrapAround = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kIsWrapAround
-	ParameterIsList = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kIsList
-	ParameterIsHidden = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden
-	ParameterCanAutomate = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kCanAutomate
-	ParameterIsBypass = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kIsBypass
+	ParameterIsList       = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kIsList
+	ParameterIsHidden     = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden
+	ParameterCanAutomate  = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kCanAutomate
+	ParameterIsBypass     = C.Steinberg_Vst_ParameterInfo_ParameterFlags_kIsBypass
 )

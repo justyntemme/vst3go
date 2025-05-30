@@ -6,7 +6,7 @@ package main
 import "C"
 import (
 	"fmt"
-	
+
 	"github.com/justyntemme/vst3go/pkg/dsp/filter"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
@@ -34,9 +34,9 @@ func (f *FilterPlugin) CreateProcessor() vst3plugin.Processor {
 
 // FilterProcessor handles the audio processing
 type FilterProcessor struct {
-	params     *param.Registry
-	buses      *bus.Configuration
-	
+	params *param.Registry
+	buses  *bus.Configuration
+
 	// DSP state
 	svFilter   *filter.MultiModeSVF
 	sampleRate float64
@@ -57,7 +57,7 @@ func NewFilterProcessor() *FilterProcessor {
 		svFilter:   filter.NewMultiModeSVF(2), // stereo
 		sampleRate: 48000,
 	}
-	
+
 	// Add parameters
 	p.params.Add(
 		param.New(ParamFilterType, "Filter Type").
@@ -66,14 +66,14 @@ func NewFilterProcessor() *FilterProcessor {
 			Steps(4).
 			Formatter(param.FilterTypeFormatter, param.FilterTypeParser).
 			Build(),
-		
+
 		param.New(ParamCutoff, "Cutoff").
 			Range(20, 20000).
 			Default(1000).
 			Unit("Hz").
 			Formatter(param.FrequencyFormatter, param.FrequencyParser).
 			Build(),
-		
+
 		param.New(ParamResonance, "Resonance").
 			Range(0.5, 20).
 			Default(1).
@@ -81,7 +81,7 @@ func NewFilterProcessor() *FilterProcessor {
 				return fmt.Sprintf("Q: %.2f", v)
 			}, nil).
 			Build(),
-		
+
 		param.New(ParamMix, "Mix").
 			Range(0, 100).
 			Default(100).
@@ -89,7 +89,7 @@ func NewFilterProcessor() *FilterProcessor {
 			Formatter(param.PercentFormatter, param.PercentParser).
 			Build(),
 	)
-	
+
 	return p
 }
 
@@ -105,10 +105,10 @@ func (p *FilterProcessor) ProcessAudio(ctx *process.Context) {
 	cutoff := ctx.ParamPlain(ParamCutoff)
 	resonance := ctx.ParamPlain(ParamResonance)
 	mix := float32(ctx.Param(ParamMix) / 100.0) // Convert from percentage
-	
+
 	// Update filter parameters
 	p.svFilter.SetFrequencyAndQ(p.sampleRate, cutoff, resonance)
-	
+
 	// Process each channel
 	numChannels := ctx.NumInputChannels()
 	if ctx.NumOutputChannels() < numChannels {
@@ -117,20 +117,20 @@ func (p *FilterProcessor) ProcessAudio(ctx *process.Context) {
 	if numChannels > 2 {
 		numChannels = 2 // We only support stereo
 	}
-	
+
 	numSamples := ctx.NumSamples()
 	dryGain := 1.0 - mix
-	
+
 	// Use work buffer for processing
 	workBuffer := ctx.WorkBuffer()
-	
+
 	for ch := 0; ch < numChannels; ch++ {
 		input := ctx.Input[ch]
 		output := ctx.Output[ch]
-		
+
 		// Copy input to work buffer
 		copy(workBuffer[:numSamples], input[:numSamples])
-		
+
 		// Process through filter based on type
 		switch filterType {
 		case param.FilterTypeLowpass:
@@ -142,7 +142,7 @@ func (p *FilterProcessor) ProcessAudio(ctx *process.Context) {
 		case param.FilterTypeNotch:
 			p.svFilter.ProcessNotch(workBuffer[:numSamples], ch)
 		}
-		
+
 		// Mix dry and wet
 		for i := 0; i < numSamples; i++ {
 			output[i] = input[i]*dryGain + workBuffer[i]*mix
@@ -180,7 +180,7 @@ func init() {
 		URL:    "https://github.com/vst3go/examples",
 		Email:  "examples@vst3go.com",
 	})
-	
+
 	// Register our plugin
 	vst3plugin.Register(&FilterPlugin{})
 }

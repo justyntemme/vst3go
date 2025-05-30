@@ -1,3 +1,4 @@
+// Package process provides audio processing context and utilities for VST3 audio processing.
 package process
 
 import (
@@ -9,11 +10,11 @@ type Context struct {
 	Input      [][]float32
 	Output     [][]float32
 	SampleRate float64
-	
+
 	// Pre-allocated work buffers
 	workBuffer []float32
 	tempBuffer []float32
-	
+
 	// Parameter access
 	params *param.Registry
 }
@@ -82,7 +83,7 @@ func (c *Context) PassThrough() {
 	if c.NumOutputChannels() < numChannels {
 		numChannels = c.NumOutputChannels()
 	}
-	
+
 	for ch := 0; ch < numChannels; ch++ {
 		copy(c.Output[ch], c.Input[ch])
 	}

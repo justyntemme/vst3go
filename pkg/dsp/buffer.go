@@ -55,7 +55,7 @@ func Mix(dst, src1, src2 []float32, mix float32) {
 	if len(src2) < n {
 		n = len(src2)
 	}
-	
+
 	invMix := 1.0 - mix
 	for i := 0; i < n; i++ {
 		dst[i] = src1[i]*invMix + src2[i]*mix
@@ -79,12 +79,12 @@ func RMS(buffer []float32) float32 {
 	if len(buffer) == 0 {
 		return 0
 	}
-	
+
 	sum := float32(0)
 	for _, sample := range buffer {
 		sum += sample * sample
 	}
-	
+
 	return float32(math.Sqrt(float64(sum / float32(len(buffer)))))
 }
 

@@ -1,10 +1,13 @@
+// Package bus provides VST3 audio bus configuration and management.
 package bus
 
 // MediaType represents the type of bus
 type MediaType int32
 
 const (
+	// MediaTypeAudio represents audio bus type
 	MediaTypeAudio MediaType = 0
+	// MediaTypeEvent represents event/MIDI bus type
 	MediaTypeEvent MediaType = 1
 )
 
@@ -12,7 +15,9 @@ const (
 type Direction int32
 
 const (
-	DirectionInput  Direction = 0
+	// DirectionInput represents input bus
+	DirectionInput Direction = 0
+	// DirectionOutput represents output bus
 	DirectionOutput Direction = 1
 )
 
@@ -20,8 +25,10 @@ const (
 type Type int32
 
 const (
+	// TypeMain represents main bus
 	TypeMain Type = 0
-	TypeAux  Type = 1
+	// TypeAux represents auxiliary bus
+	TypeAux Type = 1
 )
 
 // Info contains bus configuration
@@ -40,7 +47,7 @@ type Configuration struct {
 	eventBuses []Info
 }
 
-// NewConfiguration creates a standard stereo I/O configuration
+// NewStereoConfiguration creates a standard stereo I/O configuration
 func NewStereoConfiguration() *Configuration {
 	return &Configuration{
 		audioBuses: []Info{
@@ -91,18 +98,18 @@ func NewMonoConfiguration() *Configuration {
 // GetBusCount returns the number of buses for a given type and direction
 func (c *Configuration) GetBusCount(mediaType MediaType, direction Direction) int32 {
 	count := int32(0)
-	
+
 	buses := c.audioBuses
 	if mediaType == MediaTypeEvent {
 		buses = c.eventBuses
 	}
-	
+
 	for _, bus := range buses {
 		if bus.Direction == direction {
 			count++
 		}
 	}
-	
+
 	return count
 }
 
@@ -112,7 +119,7 @@ func (c *Configuration) GetBusInfo(mediaType MediaType, direction Direction, ind
 	if mediaType == MediaTypeEvent {
 		buses = c.eventBuses
 	}
-	
+
 	busIndex := int32(0)
 	for i := range buses {
 		if buses[i].Direction == direction {
@@ -122,7 +129,7 @@ func (c *Configuration) GetBusInfo(mediaType MediaType, direction Direction, ind
 			busIndex++
 		}
 	}
-	
+
 	return nil
 }
 

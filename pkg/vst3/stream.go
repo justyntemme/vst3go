@@ -2,20 +2,20 @@ package vst3
 
 // #include "../../include/vst3/vst3_c_api.h"
 // #include <stdlib.h>
-// 
+//
 // // Helper functions to work with IBStream
 // static inline Steinberg_tresult stream_read(struct Steinberg_IBStream* stream, void* buffer, Steinberg_int32 numBytes, Steinberg_int32* numBytesRead) {
 //     return stream->lpVtbl->read(stream, buffer, numBytes, numBytesRead);
 // }
-// 
+//
 // static inline Steinberg_tresult stream_write(struct Steinberg_IBStream* stream, void* buffer, Steinberg_int32 numBytes, Steinberg_int32* numBytesWritten) {
 //     return stream->lpVtbl->write(stream, buffer, numBytes, numBytesWritten);
 // }
-// 
+//
 // static inline Steinberg_tresult stream_seek(struct Steinberg_IBStream* stream, Steinberg_int64 pos, Steinberg_int32 mode, Steinberg_int64* result) {
 //     return stream->lpVtbl->seek(stream, pos, mode, result);
 // }
-// 
+//
 // static inline Steinberg_tresult stream_tell(struct Steinberg_IBStream* stream, Steinberg_int64* pos) {
 //     return stream->lpVtbl->tell(stream, pos);
 // }
@@ -45,7 +45,7 @@ func (s *StreamWrapper) Read(buffer []byte) (int32, error) {
 	if len(buffer) == 0 {
 		return 0, nil
 	}
-	
+
 	var numBytesRead C.Steinberg_int32
 	result := C.stream_read(s.stream, unsafe.Pointer(&buffer[0]), C.Steinberg_int32(len(buffer)), &numBytesRead)
 	if result != 0 {
@@ -59,7 +59,7 @@ func (s *StreamWrapper) Write(buffer []byte) (int32, error) {
 	if len(buffer) == 0 {
 		return 0, nil
 	}
-	
+
 	var numBytesWritten C.Steinberg_int32
 	result := C.stream_write(s.stream, unsafe.Pointer(&buffer[0]), C.Steinberg_int32(len(buffer)), &numBytesWritten)
 	if result != 0 {
@@ -118,7 +118,7 @@ func (s *StreamWrapper) WriteString(str string) error {
 		return err
 	}
 	// Write string data
-	if len(str) > 0 {
+	if str != "" {
 		_, err := s.Write([]byte(str))
 		return err
 	}

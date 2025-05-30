@@ -31,9 +31,9 @@ func (d *DelayPlugin) CreateProcessor() vst3plugin.Processor {
 
 // DelayProcessor handles the audio processing
 type DelayProcessor struct {
-	params      *param.Registry
-	buses       *bus.Configuration
-	
+	params *param.Registry
+	buses  *bus.Configuration
+
 	// Delay state - pre-allocated
 	delayBuffer [][]float32
 	bufferSize  int
@@ -56,7 +56,7 @@ func NewDelayProcessor() *DelayProcessor {
 		writePos:   0,
 		sampleRate: 48000,
 	}
-	
+
 	// Add parameters
 	p.params.Add(
 		param.New(ParamDelayTime, "Delay Time").
@@ -65,14 +65,14 @@ func NewDelayProcessor() *DelayProcessor {
 			Unit("ms").
 			Formatter(param.TimeFormatter, param.TimeParser).
 			Build(),
-		
+
 		param.New(ParamFeedback, "Feedback").
 			Range(0, 100).
 			Default(30).
 			Unit("%").
 			Formatter(param.PercentFormatter, param.PercentParser).
 			Build(),
-		
+
 		param.New(ParamMix, "Mix").
 			Range(0, 100).
 			Default(50).
@@ -80,21 +80,21 @@ func NewDelayProcessor() *DelayProcessor {
 			Formatter(param.PercentFormatter, param.PercentParser).
 			Build(),
 	)
-	
+
 	return p
 }
 
 func (p *DelayProcessor) Initialize(sampleRate float64, maxBlockSize int32) error {
 	p.sampleRate = sampleRate
 	p.bufferSize = int(sampleRate) // 1 second max delay
-	
+
 	// Pre-allocate delay buffers for 2 channels
 	p.delayBuffer = make([][]float32, 2)
 	for i := range p.delayBuffer {
 		p.delayBuffer[i] = make([]float32, p.bufferSize)
 	}
 	p.writePos = 0
-	
+
 	return nil
 }
 
@@ -102,14 +102,14 @@ func (p *DelayProcessor) ProcessAudio(ctx *process.Context) {
 	// Get parameter values
 	delayTimeMs := ctx.ParamPlain(ParamDelayTime)
 	feedback := float32(ctx.ParamPlain(ParamFeedback) / 100.0) // Convert from percentage
-	mix := float32(ctx.ParamPlain(ParamMix) / 100.0) // Convert from percentage
-	
+	mix := float32(ctx.ParamPlain(ParamMix) / 100.0)           // Convert from percentage
+
 	// Convert delay time to samples
 	delaySamples := int(delayTimeMs * p.sampleRate / 1000.0)
 	if delaySamples >= p.bufferSize {
 		delaySamples = p.bufferSize - 1
 	}
-	
+
 	// Process each channel
 	numChannels := ctx.NumInputChannels()
 	if ctx.NumOutputChannels() < numChannels {
@@ -118,30 +118,30 @@ func (p *DelayProcessor) ProcessAudio(ctx *process.Context) {
 	if numChannels > 2 {
 		numChannels = 2 // We only support stereo
 	}
-	
+
 	numSamples := ctx.NumSamples()
-	
+
 	for sample := 0; sample < numSamples; sample++ {
 		// Calculate read position for this sample
 		readPos := p.writePos - delaySamples
 		if readPos < 0 {
 			readPos += p.bufferSize
 		}
-		
+
 		for ch := 0; ch < numChannels; ch++ {
 			// Read from delay buffer
 			delayed := p.delayBuffer[ch][readPos]
-			
+
 			// Get input sample
 			dry := ctx.Input[ch][sample]
-			
+
 			// Mix dry and wet signals
 			ctx.Output[ch][sample] = dry*(1.0-mix) + delayed*mix
-			
+
 			// Write to delay buffer with feedback
 			p.delayBuffer[ch][p.writePos] = dry + delayed*feedback
 		}
-		
+
 		// Increment write position
 		p.writePos++
 		if p.writePos >= p.bufferSize {
@@ -187,7 +187,7 @@ func init() {
 		URL:    "https://github.com/vst3go/examples",
 		Email:  "examples@vst3go.com",
 	})
-	
+
 	// Register our plugin
 	vst3plugin.Register(&DelayPlugin{})
 }

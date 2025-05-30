@@ -5,18 +5,19 @@ package plugin
 import "C"
 import (
 	"unsafe"
-	
+
 	"github.com/justyntemme/vst3go/pkg/vst3"
 )
 
 // IEditController callbacks
+//
 //export GoEditControllerSetComponentState
 func GoEditControllerSetComponentState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
 	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// TODO: Implement state loading
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
@@ -27,7 +28,7 @@ func GoEditControllerSetState(componentPtr unsafe.Pointer, state unsafe.Pointer)
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// TODO: Implement state loading
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
@@ -38,7 +39,7 @@ func GoEditControllerGetState(componentPtr unsafe.Pointer, state unsafe.Pointer)
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// TODO: Implement state saving
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
@@ -49,7 +50,7 @@ func GoEditControllerGetParameterCount(componentPtr unsafe.Pointer) C.int32_t {
 	if wrapper == nil {
 		return 0
 	}
-	
+
 	return C.int32_t(wrapper.component.GetParameterCount())
 }
 
@@ -59,16 +60,16 @@ func GoEditControllerGetParameterInfo(componentPtr unsafe.Pointer, paramIndex C.
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	paramInfo, err := wrapper.component.GetParameterInfo(int32(paramIndex))
 	if err != nil || paramInfo == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// Copy to C struct
 	cInfo := info
 	cInfo.id = C.Steinberg_Vst_ParamID(paramInfo.ID)
-	
+
 	// Copy title
 	titleBytes := []byte(paramInfo.Title)
 	if len(titleBytes) > 127 {
@@ -78,7 +79,7 @@ func GoEditControllerGetParameterInfo(componentPtr unsafe.Pointer, paramIndex C.
 		cInfo.title[i] = C.Steinberg_char16(b)
 	}
 	cInfo.title[len(titleBytes)] = 0
-	
+
 	// Copy short title
 	shortTitleBytes := []byte(paramInfo.ShortTitle)
 	if len(shortTitleBytes) > 127 {
@@ -88,7 +89,7 @@ func GoEditControllerGetParameterInfo(componentPtr unsafe.Pointer, paramIndex C.
 		cInfo.shortTitle[i] = C.Steinberg_char16(b)
 	}
 	cInfo.shortTitle[len(shortTitleBytes)] = 0
-	
+
 	// Copy units
 	unitsBytes := []byte(paramInfo.Units)
 	if len(unitsBytes) > 127 {
@@ -98,15 +99,15 @@ func GoEditControllerGetParameterInfo(componentPtr unsafe.Pointer, paramIndex C.
 		cInfo.units[i] = C.Steinberg_char16(b)
 	}
 	cInfo.units[len(unitsBytes)] = 0
-	
+
 	cInfo.stepCount = C.Steinberg_int32(paramInfo.StepCount)
 	cInfo.defaultNormalizedValue = C.Steinberg_Vst_ParamValue(paramInfo.DefaultValue)
 	cInfo.unitId = C.Steinberg_Vst_UnitID(paramInfo.UnitID)
 	cInfo.flags = C.Steinberg_int32(paramInfo.Flags)
-	
+
 	// Debug: Print parameter info
 	// fmt.Printf("Parameter %d: StepCount=%d, Flags=%d, Name=%s\n", paramInfo.ID, paramInfo.StepCount, paramInfo.Flags, paramInfo.Title)
-	
+
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
 
@@ -116,16 +117,16 @@ func GoEditControllerGetParamStringByValue(componentPtr unsafe.Pointer, id C.Ste
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// Get the formatted string
 	str, err := wrapper.component.GetParamStringByValue(uint32(id), float64(valueNormalized))
 	if err != nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// Convert to UTF16 for VST3
 	copyStringToTChar(str, string, 128)
-	
+
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
 
@@ -135,16 +136,16 @@ func GoEditControllerGetParamValueByString(componentPtr unsafe.Pointer, id C.Ste
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// Convert from UTF16
 	str := stringFromTChar(string)
-	
+
 	// Parse the value
 	value, err := wrapper.component.GetParamValueByString(uint32(id), str)
 	if err != nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	*valueNormalized = C.Steinberg_Vst_ParamValue(value)
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
@@ -155,7 +156,7 @@ func GoEditControllerNormalizedParamToPlain(componentPtr unsafe.Pointer, id C.ui
 	if wrapper == nil {
 		return valueNormalized
 	}
-	
+
 	return C.double(wrapper.component.NormalizedParamToPlain(uint32(id), float64(valueNormalized)))
 }
 
@@ -165,7 +166,7 @@ func GoEditControllerPlainParamToNormalized(componentPtr unsafe.Pointer, id C.ui
 	if wrapper == nil {
 		return plainValue
 	}
-	
+
 	return C.double(wrapper.component.PlainParamToNormalized(uint32(id), float64(plainValue)))
 }
 
@@ -175,7 +176,7 @@ func GoEditControllerGetParamNormalized(componentPtr unsafe.Pointer, id C.uint32
 	if wrapper == nil {
 		return 0
 	}
-	
+
 	return C.double(wrapper.component.GetParamNormalized(uint32(id)))
 }
 
@@ -185,7 +186,7 @@ func GoEditControllerSetParamNormalized(componentPtr unsafe.Pointer, id C.uint32
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	err := wrapper.component.SetParamNormalized(uint32(id), float64(value))
 	if err != nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)

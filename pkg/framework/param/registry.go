@@ -23,7 +23,7 @@ func NewRegistry() *Registry {
 func (r *Registry) Add(params ...*Parameter) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	for _, p := range params {
 		if _, exists := r.params[p.ID]; exists {
 			continue // Skip duplicates
@@ -31,7 +31,7 @@ func (r *Registry) Add(params ...*Parameter) error {
 		r.params[p.ID] = p
 		r.order = append(r.order, p.ID)
 	}
-	
+
 	return nil
 }
 
@@ -39,7 +39,7 @@ func (r *Registry) Add(params ...*Parameter) error {
 func (r *Registry) Get(id uint32) *Parameter {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	return r.params[id]
 }
 
@@ -47,11 +47,11 @@ func (r *Registry) Get(id uint32) *Parameter {
 func (r *Registry) GetByIndex(index int32) *Parameter {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	if index < 0 || index >= int32(len(r.order)) {
 		return nil
 	}
-	
+
 	id := r.order[index]
 	return r.params[id]
 }
@@ -60,7 +60,7 @@ func (r *Registry) GetByIndex(index int32) *Parameter {
 func (r *Registry) Count() int32 {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	return int32(len(r.order))
 }
 
@@ -68,11 +68,11 @@ func (r *Registry) Count() int32 {
 func (r *Registry) All() []*Parameter {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	result := make([]*Parameter, len(r.order))
 	for i, id := range r.order {
 		result[i] = r.params[id]
 	}
-	
+
 	return result
 }

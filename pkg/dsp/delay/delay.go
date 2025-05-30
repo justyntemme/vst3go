@@ -46,15 +46,15 @@ func (d *Line) Read(delaySamples float64) float32 {
 	if readPos < 0 {
 		readPos += float64(d.bufferSize)
 	}
-	
+
 	// Linear interpolation
 	readPosInt := int(readPos)
 	frac := float32(readPos - float64(readPosInt))
-	
+
 	// Get two samples for interpolation
 	s1 := d.buffer[readPosInt]
 	s2 := d.buffer[(readPosInt+1)%d.bufferSize]
-	
+
 	// Linear interpolation
 	return s1*(1.0-frac) + s2*frac
 }
@@ -167,13 +167,13 @@ func (c *CombDelay) SetDamp(damp float32) {
 // Process runs the comb filter
 func (c *CombDelay) Process(input float32, delaySamples float64) float32 {
 	output := c.Read(delaySamples)
-	
+
 	// Apply damping (simple one-pole lowpass)
 	c.dampVal = output*(1.0-c.damp) + c.dampVal*c.damp
-	
+
 	// Write input + filtered feedback
 	c.Write(input + c.dampVal*c.feedback)
-	
+
 	return output
 }
 
@@ -209,25 +209,25 @@ func NewMultiTap(maxDelaySeconds, sampleRate float64, numTaps int) *MultiTapDela
 func (m *MultiTapDelay) ProcessMultiTap(input float32, taps []TapOutput, outL, outR *float32) {
 	// Write input to delay line
 	m.Write(input)
-	
+
 	// Clear outputs
 	*outL = 0
 	*outR = 0
-	
+
 	// Sum all taps
 	for i := range taps {
 		if i >= m.numTaps {
 			break
 		}
-		
+
 		tap := &taps[i]
 		delayed := m.Tap(tap.DelaySamples) * tap.Gain
-		
+
 		// Pan (constant power)
 		panAngle := (tap.Pan + 1.0) * 0.25 * math.Pi // 0 to π/2
 		leftGain := float32(math.Cos(float64(panAngle)))
 		rightGain := float32(math.Sin(float64(panAngle)))
-		
+
 		*outL += delayed * leftGain
 		*outR += delayed * rightGain
 	}
@@ -236,9 +236,9 @@ func (m *MultiTapDelay) ProcessMultiTap(input float32, taps []TapOutput, outL, o
 // ModulatedDelay implements a delay with LFO modulation
 type ModulatedDelay struct {
 	Line
-	lfoPhase   float64
-	lfoRate    float64
-	lfoDepth   float64
+	lfoPhase    float64
+	lfoRate     float64
+	lfoDepth    float64
 	centerDelay float64
 }
 
@@ -248,7 +248,7 @@ func NewModulated(maxDelaySeconds, sampleRate float64) *ModulatedDelay {
 		Line:        *New(maxDelaySeconds, sampleRate),
 		lfoPhase:    0.0,
 		lfoRate:     0.5,
-		lfoDepth:    5.0, // milliseconds
+		lfoDepth:    5.0,  // milliseconds
 		centerDelay: 10.0, // milliseconds
 	}
 }
@@ -270,22 +270,22 @@ func (m *ModulatedDelay) Process(input float32) float32 {
 	lfo := math.Sin(2.0 * math.Pi * m.lfoPhase)
 	delayMs := m.centerDelay + m.lfoDepth*lfo
 	delaySamples := delayMs * m.sampleRate / 1000.0
-	
+
 	// Ensure delay is positive
 	if delaySamples < 1.0 {
 		delaySamples = 1.0
 	}
-	
+
 	// Process with modulated delay
 	output := m.Read(delaySamples)
 	m.Write(input)
-	
+
 	// Update LFO phase
 	m.lfoPhase += m.lfoRate / m.sampleRate
 	if m.lfoPhase >= 1.0 {
 		m.lfoPhase -= 1.0
 	}
-	
+
 	return output
 }
 

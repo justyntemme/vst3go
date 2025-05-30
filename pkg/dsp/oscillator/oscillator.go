@@ -155,19 +155,19 @@ func NewBLIT(sampleRate float64) *BLITOscillator {
 func (b *BLITOscillator) SetFrequency(freq float64) {
 	b.frequency = freq
 	b.phaseInc = freq / b.sampleRate
-	
+
 	// Calculate number of harmonics below Nyquist
 	b.m = int(math.Floor(0.5 * b.sampleRate / freq))
-	
+
 	// Calculate amplitude scaling
-	b.a = 1.0 / (2.0 * float64(b.m) + 1.0)
+	b.a = 1.0 / (2.0*float64(b.m) + 1.0)
 }
 
 // BLIT generates a band-limited impulse train sample
 func (b *BLITOscillator) BLIT() float32 {
 	// Generate BLIT using closed-form solution
 	phase2pi := 2.0 * math.Pi * b.phase
-	
+
 	var sample float64
 	if b.phase < b.phaseInc || b.phase > (1.0-b.phaseInc) {
 		// Near discontinuity, use limit value
@@ -182,22 +182,22 @@ func (b *BLITOscillator) BLIT() float32 {
 			sample = b.a
 		}
 	}
-	
+
 	// Update phase
 	b.phase += b.phaseInc
 	if b.phase >= 1.0 {
 		b.phase -= 1.0
 	}
-	
+
 	return float32(sample)
 }
 
 // BandLimitedSaw generates an alias-free sawtooth using integrated BLIT
 type BandLimitedSaw struct {
-	blit     *BLITOscillator
-	leaky    float64 // leaky integrator coefficient
-	state    float64 // integrator state
-	dcBlock  float64 // DC blocking filter state
+	blit    *BLITOscillator
+	leaky   float64 // leaky integrator coefficient
+	state   float64 // integrator state
+	dcBlock float64 // DC blocking filter state
 }
 
 // NewBandLimitedSaw creates a new band-limited sawtooth oscillator
@@ -217,14 +217,14 @@ func (s *BandLimitedSaw) SetFrequency(freq float64) {
 func (s *BandLimitedSaw) Next() float32 {
 	// Get BLIT sample
 	blit := float64(s.blit.BLIT())
-	
+
 	// Leaky integration
 	s.state = s.leaky*s.state + blit
-	
+
 	// DC blocking
 	output := s.state - s.dcBlock
 	s.dcBlock = s.state * 0.999
-	
+
 	// Scale to [-1, 1]
 	return float32(output * s.blit.phaseInc * 4.0)
 }

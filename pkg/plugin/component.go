@@ -6,7 +6,7 @@ import "C"
 import (
 	"sync"
 	"unsafe"
-	
+
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/process"
 	"github.com/justyntemme/vst3go/pkg/vst3"
@@ -34,7 +34,7 @@ func newComponent(processor Processor) *componentImpl {
 }
 
 // IComponent implementation
-func (c *componentImpl) Initialize(context interface{}) error {
+func (c *componentImpl) Initialize(_ interface{}) error {
 	return c.processor.Initialize(48000, c.maxBlockSize) // Default sample rate
 }
 
@@ -47,7 +47,7 @@ func (c *componentImpl) GetControllerClassID() [16]byte {
 	return [16]byte{}
 }
 
-func (c *componentImpl) SetIOMode(mode int32) error {
+func (c *componentImpl) SetIOMode(_ int32) error {
 	return nil
 }
 
@@ -62,12 +62,12 @@ func (c *componentImpl) GetBusInfo(mediaType, direction, index int32) (*vst3.Bus
 	if info == nil {
 		return nil, vst3.ErrNotImplemented
 	}
-	
+
 	flags := uint32(1) // Default active
 	if !info.IsActive {
 		flags = 0
 	}
-	
+
 	return &vst3.BusInfo{
 		MediaType:    int32(info.MediaType),
 		Direction:    int32(info.Direction),
@@ -89,7 +89,7 @@ func (c *componentImpl) ActivateBus(mediaType, direction, index int32, state boo
 func (c *componentImpl) SetActive(state bool) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.active = state
 	return c.processor.SetActive(state)
 }
@@ -129,7 +129,7 @@ func (c *componentImpl) GetLatencySamples() uint32 {
 func (c *componentImpl) SetupProcessing(setup *vst3.ProcessSetup) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.sampleRate = setup.SampleRate
 	if setup.MaxSamplesPerBlock > 0 {
 		c.maxBlockSize = setup.MaxSamplesPerBlock
@@ -137,14 +137,14 @@ func (c *componentImpl) SetupProcessing(setup *vst3.ProcessSetup) error {
 		params := c.processor.GetParameters()
 		c.processCtx = process.NewContext(int(c.maxBlockSize), params)
 	}
-	
+
 	return c.processor.Initialize(c.sampleRate, c.maxBlockSize)
 }
 
 func (c *componentImpl) SetProcessing(state bool) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.processing = state
 	return nil
 }
@@ -152,24 +152,24 @@ func (c *componentImpl) SetProcessing(state bool) error {
 func (c *componentImpl) Process(data unsafe.Pointer) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	if !c.processing {
 		return nil
 	}
-	
+
 	// Get raw process data struct
 	processData := (*C.struct_Steinberg_Vst_ProcessData)(data)
-	
+
 	// Update context with current buffers
 	c.processCtx.SampleRate = c.sampleRate
-	
+
 	// Set input/output buffers (slicing pre-allocated arrays, no allocation)
 	numSamples := int(processData.numSamples)
-	
+
 	// Clear slices (no allocation, just updating slice headers)
 	c.processCtx.Input = c.processCtx.Input[:0]
 	c.processCtx.Output = c.processCtx.Output[:0]
-	
+
 	// Map input buffers
 	if processData.numInputs > 0 && processData.inputs != nil {
 		inputBuses := (*[1]C.struct_Steinberg_Vst_AudioBusBuffers)(unsafe.Pointer(processData.inputs))[:processData.numInputs:processData.numInputs]
@@ -187,7 +187,7 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 			}
 		}
 	}
-	
+
 	// Map output buffers
 	if processData.numOutputs > 0 && processData.outputs != nil {
 		outputBuses := (*[1]C.struct_Steinberg_Vst_AudioBusBuffers)(unsafe.Pointer(processData.outputs))[:processData.numOutputs:processData.numOutputs]
@@ -205,15 +205,15 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 			}
 		}
 	}
-	
+
 	// Process parameter changes
 	if processData.inputParameterChanges != nil {
 		// TODO: Implement parameter change processing
 	}
-	
+
 	// Call processor with context
 	c.processor.ProcessAudio(c.processCtx)
-	
+
 	return nil
 }
 
@@ -235,7 +235,7 @@ func (c *componentImpl) GetParameterInfo(index int32) (*vst3.ParameterInfo, erro
 	if p == nil {
 		return nil, vst3.ErrInvalidArgument
 	}
-	
+
 	return &vst3.ParameterInfo{
 		ID:           p.ID,
 		Title:        p.Name,

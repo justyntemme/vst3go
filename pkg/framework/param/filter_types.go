@@ -17,6 +17,11 @@ const (
 	FilterTypeHighShelf
 )
 
+const (
+	// unknownFilterType represents an unknown filter type
+	unknownFilterType = "Unknown"
+)
+
 // FilterTypeNames provides display names for filter types
 var FilterTypeNames = []string{
 	"Lowpass",
@@ -35,14 +40,14 @@ func FilterTypeFormatter(value float64) string {
 	if index >= 0 && index < len(FilterTypeNames) {
 		return FilterTypeNames[index]
 	}
-	return "Unknown"
+	return unknownFilterType
 }
 
 // FilterTypeParser parses filter type strings
 func FilterTypeParser(str string) (float64, error) {
 	// Handle common variations
 	normalizedStr := strings.ToLower(strings.TrimSpace(str))
-	
+
 	// Map variations to standard names
 	filterAliases := map[string]int{
 		"lowpass":     FilterTypeLowpass,
@@ -80,18 +85,18 @@ func FilterTypeParser(str string) (float64, error) {
 		"hs":          FilterTypeHighShelf,
 		"treble":      FilterTypeHighShelf,
 	}
-	
+
 	if index, ok := filterAliases[normalizedStr]; ok {
 		return float64(index), nil
 	}
-	
+
 	// Try exact match
 	for i, name := range FilterTypeNames {
 		if strings.EqualFold(str, name) {
 			return float64(i), nil
 		}
 	}
-	
+
 	return 0, fmt.Errorf("unknown filter type: %s", str)
 }
 
@@ -117,13 +122,13 @@ func GateTypeFormatter(value float64) string {
 	if index >= 0 && index < len(GateTypeNames) {
 		return GateTypeNames[index]
 	}
-	return "Unknown"
+	return unknownFilterType
 }
 
 // GateTypeParser parses gate type strings
 func GateTypeParser(str string) (float64, error) {
 	normalizedStr := strings.ToLower(strings.TrimSpace(str))
-	
+
 	gateAliases := map[string]int{
 		"hard":      GateTypeHard,
 		"hard gate": GateTypeHard,
@@ -137,16 +142,16 @@ func GateTypeParser(str string) (float64, error) {
 		"duck":      GateTypeDucker,
 		"ducking":   GateTypeDucker,
 	}
-	
+
 	if index, ok := gateAliases[normalizedStr]; ok {
 		return float64(index), nil
 	}
-	
+
 	for i, name := range GateTypeNames {
 		if strings.EqualFold(str, name) {
 			return float64(i), nil
 		}
 	}
-	
+
 	return 0, fmt.Errorf("unknown gate type: %s", str)
 }

@@ -10,7 +10,7 @@ import "C"
 import (
 	"sync"
 	"unsafe"
-	
+
 	"github.com/justyntemme/vst3go/pkg/vst3"
 )
 
@@ -91,16 +91,16 @@ func unregisterComponent(id uintptr) {
 func getComponent(id uintptr) *componentWrapper {
 	componentsMu.RLock()
 	defer componentsMu.RUnlock()
-	
+
 	if id == 0 {
 		return nil
 	}
-	
+
 	wrapper, exists := components[id]
 	if !exists {
 		return nil
 	}
-	
+
 	return wrapper
 }
 
@@ -125,16 +125,16 @@ func GoGetClassInfo(index C.int32_t, cid *C.char, cardinality *C.int32_t, catego
 	if globalPlugin == nil || index != 0 {
 		return
 	}
-	
+
 	info := globalPlugin.GetInfo()
-	
+
 	// Copy UID
 	uid := info.UID()
 	C.memcpy(unsafe.Pointer(cid), unsafe.Pointer(&uid[0]), 16)
-	
+
 	// Set cardinality
 	*cardinality = C.Steinberg_PClassInfo_ClassCardinality_kManyInstances
-	
+
 	// Set category and name
 	C.strcpy(category, C.CString("Audio Module Class"))
 	C.strcpy(name, C.CString(info.Name))
@@ -145,67 +145,68 @@ func GoCreateInstance(cid *C.char, iid *C.char) unsafe.Pointer {
 	if globalPlugin == nil {
 		return nil
 	}
-	
+
 	// Check if the class ID matches our plugin
 	var requestedCID [16]byte
 	C.memcpy(unsafe.Pointer(&requestedCID[0]), unsafe.Pointer(cid), 16)
-	
+
 	pluginInfo := globalPlugin.GetInfo()
 	pluginUID := pluginInfo.UID()
 	if requestedCID != pluginUID {
 		return nil
 	}
-	
+
 	// Create processor instance
 	processor := globalPlugin.CreateProcessor()
 	if processor == nil {
 		return nil
 	}
-	
+
 	// Wrap in component implementation
 	component := newComponent(processor)
-	
+
 	// Create wrapper
 	wrapper := &componentWrapper{
 		component: component,
 	}
-	
+
 	// Register and get ID
 	id := registerComponent(wrapper)
-	
+
 	// Create C component with ID instead of Go pointer
 	cComponent := C.createComponent(unsafe.Pointer(id))
 	if cComponent == nil {
 		unregisterComponent(id)
 		return nil
 	}
-	
+
 	wrapper.handle = cComponent
-	
+
 	return cComponent
 }
 
 //export GoReleaseComponent
 func GoReleaseComponent(componentPtr unsafe.Pointer) {
 	id := uintptr(componentPtr)
-	
+
 	if id == 0 {
 		return
 	}
-	
+
 	unregisterComponent(id)
 }
 
 // All the IComponent callbacks
+//
 //export GoComponentInitialize
 func GoComponentInitialize(componentPtr unsafe.Pointer, context unsafe.Pointer) C.Steinberg_tresult {
 	defer recoverPanic("GoComponentInitialize")
-	
+
 	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	err := wrapper.component.Initialize(context)
 	if err != nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
@@ -216,12 +217,12 @@ func GoComponentInitialize(componentPtr unsafe.Pointer, context unsafe.Pointer) 
 //export GoComponentTerminate
 func GoComponentTerminate(componentPtr unsafe.Pointer) C.Steinberg_tresult {
 	defer recoverPanic("GoComponentTerminate")
-	
+
 	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	err := wrapper.component.Terminate()
 	if err != nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
@@ -235,7 +236,7 @@ func GoComponentGetControllerClassId(componentPtr unsafe.Pointer, classId *C.cha
 	if wrapper == nil {
 		return
 	}
-	
+
 	uid := wrapper.component.GetControllerClassID()
 	C.memcpy(unsafe.Pointer(classId), unsafe.Pointer(&uid[0]), 16)
 }
@@ -246,7 +247,7 @@ func GoComponentSetIoMode(componentPtr unsafe.Pointer, mode C.int32_t) C.Steinbe
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	err := wrapper.component.SetIOMode(int32(mode))
 	if err != nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
@@ -260,7 +261,7 @@ func GoComponentGetBusCount(componentPtr unsafe.Pointer, mediaType, dir C.int32_
 	if wrapper == nil {
 		return 0
 	}
-	
+
 	return C.int32_t(wrapper.component.GetBusCount(int32(mediaType), int32(dir)))
 }
 
@@ -270,18 +271,18 @@ func GoComponentGetBusInfo(componentPtr unsafe.Pointer, mediaType, dir, index C.
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	info, err := wrapper.component.GetBusInfo(int32(mediaType), int32(dir), int32(index))
 	if err != nil || info == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// Copy bus info to C struct
 	cBus := (*C.struct_Steinberg_Vst_BusInfo)(bus)
 	cBus.mediaType = C.Steinberg_Vst_MediaType(info.MediaType)
 	cBus.direction = C.Steinberg_Vst_BusDirection(info.Direction)
 	cBus.channelCount = C.Steinberg_int32(info.ChannelCount)
-	
+
 	// Copy name
 	nameBytes := []byte(info.Name)
 	if len(nameBytes) > 127 {
@@ -291,10 +292,10 @@ func GoComponentGetBusInfo(componentPtr unsafe.Pointer, mediaType, dir, index C.
 		cBus.name[i] = C.Steinberg_char16(b)
 	}
 	cBus.name[len(nameBytes)] = 0
-	
+
 	cBus.busType = C.Steinberg_Vst_BusType(info.BusType)
 	cBus.flags = C.Steinberg_uint32(info.Flags)
-	
+
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
 
@@ -304,7 +305,7 @@ func GoComponentActivateBus(componentPtr unsafe.Pointer, mediaType, dir, index, 
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	err := wrapper.component.ActivateBus(int32(mediaType), int32(dir), int32(index), state != 0)
 	if err != nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
@@ -318,7 +319,7 @@ func GoComponentSetActive(componentPtr unsafe.Pointer, state C.int32_t) C.Steinb
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	err := wrapper.component.SetActive(state != 0)
 	if err != nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
@@ -332,7 +333,7 @@ func GoComponentSetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.St
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// TODO: Implement state loading
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
@@ -343,7 +344,7 @@ func GoComponentGetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.St
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
-	
+
 	// TODO: Implement state saving
 	return C.Steinberg_tresult(vst3.ResultOK)
 }

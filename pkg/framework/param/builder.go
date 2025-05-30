@@ -27,9 +27,9 @@ func (b *Builder) ShortName(name string) *Builder {
 }
 
 // Range sets the min and max values
-func (b *Builder) Range(min, max float64) *Builder {
-	b.param.Min = min
-	b.param.Max = max
+func (b *Builder) Range(minVal, maxVal float64) *Builder {
+	b.param.Min = minVal
+	b.param.Max = maxVal
 	return b
 }
 

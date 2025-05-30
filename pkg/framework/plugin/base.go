@@ -1,3 +1,4 @@
+// Package plugin provides base plugin functionality and information structures for VST3 plugins.
 package plugin
 
 import (
@@ -13,15 +14,15 @@ type Base struct {
 }
 
 // NewBase creates a new plugin base
-func NewBase(info Info) *Base {
+func NewBase(info *Info) *Base {
 	b := &Base{
-		Info:   info,
+		Info:   *info,
 		params: param.NewRegistry(),
 	}
-	
+
 	// Initialize state manager with parameter registry
 	b.state = state.NewManager(b.params)
-	
+
 	return b
 }
 
