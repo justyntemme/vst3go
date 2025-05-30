@@ -1,185 +1,271 @@
-# VST3Go Implementation Guide
+# VST3Go - Unified Development Strategy
 
 ## Project Overview
 
-VST3Go aims to create a Go wrapper for the VST3 C API, enabling developers to build VST3 plugins in Go. This guide outlines the minimal viable product (MVP) implementation strategy.
+VST3Go provides a Go framework for building VST3 audio plugins. We follow a "move fast, break things" philosophy to rapidly iterate towards a clean, idiomatic Go API that makes audio plugin development accessible to Go developers.
 
-## Current Status (Updated based on test results)
+### Core Principles
 
-### ✅ Completed
-- Phase 1: Project setup with Go modules, Makefile, and directory structure
-- Phase 2: C Bridge with factory, reference counting, and interface routing
-- Phase 3: Go VST3 bindings with structs and wrappers
-- Phase 4: Plugin framework with component interfaces and parameter management
-- Phase 5: Build system with Linux support and VST3 bundle creation
-- Basic validation test integration
+1. **Minimal C Bridge** - C layer is just a thin wrapper, all business logic lives in Go
+2. **Zero Allocations** - No memory allocations in the audio processing path
+3. **Developer Experience** - Make the 80% use case trivial, the 20% possible
+4. **Go Idiomatic** - Feel like a native Go library, not a C++ wrapper
 
-### 🚧 In Progress
-- Component creation works but IPluginBase methods need implementation
-- Memory management using handle-based approach to avoid CGO pointer issues
+## Current Status
 
-### ❌ Issues Found
-- Segmentation fault when validator tries to call IPluginBase methods
-- Need proper vtable structure for component interfaces
+### ✅ What's Working
 
-## Architecture Overview
+**Architecture**
+- Minimal C bridge layer (bridge.c, component.c) - just function routing
+- Rich Go framework with clean separation of concerns
+- Zero-allocation audio processing with pre-allocated buffers
+- Thread-safe parameter system using atomic operations
 
-Based on implementation experience:
+**Framework Packages**
+- `pkg/framework/plugin` - Plugin metadata and interfaces
+- `pkg/framework/param` - Parameter management with fluent builder API
+- `pkg/framework/process` - Audio processing context
+- `pkg/framework/bus` - Bus configuration management
+- `pkg/framework/state` - State persistence (structure in place)
 
-1. **C Bridge Layer**: Implements VST3 entry points, vtables, and forwards to Go
-2. **Go Plugin Core**: Plugin logic, DSP, and parameter management 
-3. **Handle-based Memory**: Use integer handles instead of pointers for C/Go boundary
-4. **VST3 Bundle**: Linux .vst3 bundle structure working
+**DSP Packages**
+- `pkg/dsp/buffer` - Common buffer operations
+- `pkg/dsp/filter` - Biquad and State Variable filters
+- `pkg/dsp/oscillator` - Basic and band-limited oscillators
+- `pkg/dsp/envelope` - ADSR, AR, and envelope followers
+- `pkg/dsp/delay` - Various delay line implementations
 
-## Key Learnings from Validator Tests
+**Working Examples**
+- **SimpleGain** - Basic gain control (115 lines, down from 147)
+- **SimpleDelay** - Delay effect with feedback
+- **MultiModeFilter** - State variable filter with morphing
 
-### Critical Requirements
-1. **IPluginBase Interface**: MUST be properly implemented in component vtable
-   - `initialize()` and `terminate()` are called immediately after creation
-   - Segfault indicates vtable structure issue
+All examples build successfully and pass VST3 validation tests.
 
-2. **Memory Management**: 
-   - Cannot pass Go pointers to C that contain Go pointers
-   - Solution: Use handle/ID system with global registry
+## Immediate Priorities
 
-3. **Interface Querying**:
-   - Factory's `createInstance` should accept any IID
-   - Component's `queryInterface` handles specific interface requests
-   - Must support IComponent, IAudioProcessor, and IEditController
+### 1. Parameter Automation from Host 🔜
+Currently parameters can be set but changes from the host aren't processed.
 
-## Updated Implementation Tasks
-
-### Phase 7: Fix IPluginBase Implementation ✅
-- [x] Component vtable must include IPluginBase methods first
-- [x] Ensure proper vtable ordering:
-  ```
-  IUnknown methods (queryInterface, addRef, release)
-  IPluginBase methods (initialize, terminate)
-  IComponent methods (getControllerClassId, setIoMode, etc.)
-  ```
-- [x] Fix segfault in component initialization
-
-### Phase 8: Complete Component Implementation ✅
-- [x] Implement state save/restore (setState/getState)
-- [x] Add proper IEditController vtable if component acts as controller
-- [x] Implement all parameter-related callbacks
-- [x] Add bus arrangement negotiation
-
-### Phase 9: Audio Processing ✅
-- [x] Implement actual DSP in Process callback
-- [x] Handle different sample formats (32/64 bit)
-- [x] Implement proper bus handling
-- [x] Add parameter smoothing
-
-### Phase 10: Validation & Testing ✅
-- [x] Pass basic validator tests:
-  - [x] Component creation
-  - [x] Initialize/Terminate cycle
-  - [x] Bus configuration
-  - [x] Parameter enumeration
-  - [x] Basic audio processing
-- [x] Create automated test suite
-- [x] Add example plugins (gain, delay)
-
-## Technical Fixes Needed
-
-### Immediate Fixes
-1. **Component VTable Structure**:
-   ```c
-   struct ComponentVtbl {
-       // IUnknown
-       queryInterface, addRef, release
-       // IPluginBase  
-       initialize, terminate
-       // IComponent
-       getControllerClassId, setIoMode, ...
-   }
-   ```
-
-2. **Handle System Enhancement**:
-   - Add error handling for invalid handles
-   - Implement handle cleanup on component destruction
-   - Add concurrent access protection
-
-3. **Error Reporting**:
-   - Add logging to C bridge for debugging
-   - Implement proper error code returns
-   - Add panic recovery in Go callbacks
-
-### Memory Management Strategy
 ```go
-// Current working approach:
-type ComponentRegistry struct {
-    components map[uintptr]*componentWrapper
-    mu         sync.RWMutex
-    nextID     uintptr
+// TODO in pkg/plugin/component.go
+func (w *componentWrapper) process(data *C.struct_Steinberg_Vst_ProcessData) C.Steinberg_tresult {
+    // TODO: Process parameter changes from data.inputParameterChanges
+    // This needs to read the parameter change queue and apply changes
 }
 ```
 
-### Build System Enhancements
-- Add debug build target with symbols
-- Add sanitizer support for memory debugging  
-- Create test harness for validator automation
+### 2. State Save/Load Implementation 🔜
+Framework structure exists but implementation is incomplete.
 
-## Validator Test Results Summary
+```go
+// pkg/framework/state/manager.go needs:
+- Actual serialization/deserialization
+- Version handling
+- Stream wrapper for IBStream
+```
 
-### What Works
-- ✅ Module loads successfully
-- ✅ Factory is found and queried
-- ✅ Plugin information is retrieved correctly
-- ✅ Component instance is created
+### 3. Process Context Support 🔜
+Musical time, tempo, and transport information.
 
-### What Fails
-- ❌ IPluginBase methods cause segfault
-- ❌ No audio processing tests pass yet
-- ❌ Parameter system not fully tested
-- ❌ State persistence not implemented
+```go
+// Add to process.Context:
+- Tempo/BPM
+- Time signature
+- Transport state (playing/stopped)
+- Sample position
+- Musical position
+```
 
-## Next Steps Priority Order
+### 4. Parameter Value Strings 🔜
+Allow parameters to display formatted values.
 
-1. Fix component vtable structure to prevent segfault
-2. Implement missing IPluginBase methods properly
-3. Add debug logging to identify exact failure points
-4. Implement minimal state save/restore
-5. Get first validator test to pass
-6. Iterate on remaining tests
+```go
+// Add to parameter system:
+- Value to string conversion
+- String to value parsing
+- Custom formatting (e.g., "440 Hz", "-6.0 dB")
+```
 
-## Success Metrics
+## Development Roadmap
 
-### MVP Goals ✅
-- [x] Pass validator without segfaults
-- [x] Successfully initialize and terminate component
-- [x] Process audio without crashes
-- [x] Save and restore plugin state
-- [x] Work in at least one DAW (Reaper recommended for testing)
+### Phase 4: Developer Experience (Current) 🚧
 
-### Stretch Goals  
-- [ ] Full parameter automation support
-- [ ] MIDI input handling
-- [ ] Multiple bus configurations
-- [ ] Cross-platform support (Windows, macOS)
-- [ ] UI integration support
+**Goal**: Make plugin development as simple as possible
 
-## Resources & References
+1. **Plugin Templates**
+   ```go
+   // Simple as:
+   type MyPlugin struct {
+       plugin.Base
+   }
+   
+   func (p *MyPlugin) ProcessAudio(ctx *process.Context) {
+       // Your DSP here
+   }
+   ```
+
+2. **Common Effects Library**
+   - Reverb template
+   - Compressor template
+   - EQ template
+   - Synthesizer template
+
+3. **Development Tools**
+   - Hot reload support
+   - Performance profiler
+   - Parameter automation recorder
+   - Debug visualizer
+
+### Phase 5: MIDI & Events 🔜
+
+**Goal**: Support instrument plugins
+
+1. **Event Processing**
+   - Note on/off events
+   - MIDI CC handling
+   - Pitch bend
+   - Basic MPE support
+
+2. **Voice Management**
+   - Voice allocator
+   - Note stealing
+   - Envelope triggering
+
+### Phase 6: Extended Features 📅
+
+**Goal**: Professional plugin capabilities
+
+1. **Advanced Bus Support**
+   - Side-chain inputs
+   - Multi-channel configurations
+   - Surround formats (5.1, 7.1)
+
+2. **Advanced Parameters**
+   - Parameter groups
+   - Linked parameters
+   - Meta parameters
+
+3. **Performance Features**
+   - SIMD optimizations
+   - Multi-core processing
+   - Lookahead buffers
+
+## VST3 Feature Implementation Status
+
+### Core Features
+- ✅ IComponent - Basic component interface
+- ✅ IAudioProcessor - Audio processing
+- ✅ IEditController - Parameter control
+- ✅ 32-bit float processing
+- ✅ Basic stereo I/O
+- ✅ Parameter definition and storage
+- ✅ Thread-safe parameter access
+- 🚧 Parameter changes from host
+- 🚧 State save/load
+- ❌ 64-bit double processing
+- ❌ Multi-bus support
+- ❌ MIDI event processing
+- ❌ IEditController2 - Extended parameter features
+- ❌ IUnitInfo - Unit/preset organization
+
+### Not Planned for v1.0
+- GUI support (IPlugView) - Use generic host UI
+- VST2 wrapper - Focus on VST3 only
+- AAX/AU wrappers - VST3 first
+- Windows/macOS support - Linux first, others later
+
+## Code Examples
+
+### Current API (Working)
+```go
+type DelayProcessor struct {
+    params *param.Registry
+    delay  *dsp.Line
+}
+
+func (p *DelayProcessor) ProcessAudio(ctx *process.Context) {
+    delayMs := ctx.ParamPlain(ParamDelayTime)
+    mix := float32(ctx.Param(ParamMix))
+    
+    for ch := 0; ch < ctx.NumChannels(); ch++ {
+        p.delay.ProcessBufferMix(
+            ctx.ChannelBuffer(ch), 
+            delayMs, 
+            mix,
+        )
+    }
+}
+```
+
+### Target API (Simpler)
+```go
+type DelayPlugin struct {
+    plugin.Base
+    delay *dsp.Delay
+}
+
+func (p *DelayPlugin) Process(audio *plugin.Audio) {
+    p.delay.Process(audio, p.Params.DelayTime, p.Params.Mix)
+}
+```
+
+## Implementation Guidelines
+
+### Zero Allocation Rules
+1. Pre-allocate all buffers in `Initialize()`
+2. Use object pools for temporary buffers
+3. Avoid slice append in audio path
+4. No string operations in audio path
+5. Use atomic operations for parameters
+
+### Testing Requirements
+1. All plugins must pass VST3 validator
+2. Benchmark tests for allocation checking
+3. Integration tests with test host
+4. Cross-platform build verification
+
+## Getting Started
+
+### Building
+```bash
+make all-examples  # Build all example plugins
+make test-validate # Run VST3 validator
+make install       # Install to ~/.vst3
+```
+
+### Creating a Plugin
+1. Copy an example plugin
+2. Modify the DSP processing
+3. Adjust parameters as needed
+4. Build and test
+
+## Resources
 
 - [VST3 SDK Documentation](https://steinbergmedia.github.io/vst3_dev_portal/)
 - [VST3 C API Header](./include/vst3/vst3_c_api.h)
-- CGO Documentation - especially pointer passing rules
-- VST3 Validator output logs in test_results.txt
+- [Example Plugins](./examples/)
+- [Architecture Guide](./docs/architecture.md) (TODO)
 
-## Debugging Commands
+## Success Metrics
 
-```bash
-# Run validator with verbose output
-make test-validate 2>&1 | tee debug.log
+### v1.0 Requirements
+- ✅ Pass VST3 validator
+- ✅ Zero allocations in audio path
+- ✅ < 200 lines for basic effects
+- 🚧 Parameter automation working
+- 🚧 State persistence working
+- 🚧 Used in production by at least one user
+- 📅 Documentation complete
+- 📅 10+ example plugins
 
-# Check exported symbols
-nm -D build/SimpleGain.so | grep -E "(component|factory)"
+### Post v1.0 Goals
+- Cross-platform support
+- MIDI/Instrument support
+- Performance competitive with C++
+- Active community
+- Plugin marketplace
 
-# Run with GDB
-gdb validator
-run -q build/SimpleGain.vst3
+---
 
-# Check for memory issues
-valgrind validator build/SimpleGain.vst3
-```
+*This document is the single source of truth for VST3Go development. Update it as features are completed.*

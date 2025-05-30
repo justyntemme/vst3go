@@ -32,7 +32,7 @@ DEBUG_LDFLAGS := -shared -g
 all: gain
 
 # Build all example plugins
-all-examples: gain delay
+all-examples: gain delay filter
 
 # Build gain example
 gain: PLUGIN_NAME := SimpleGain
@@ -47,6 +47,10 @@ gain-debug: $(BUILD_DIR)/SimpleGain.$(SO_EXT)
 # Build delay example
 delay: PLUGIN_NAME := SimpleDelay
 delay: $(BUILD_DIR)/SimpleDelay.$(SO_EXT)
+
+# Build filter example
+filter: PLUGIN_NAME := MultiModeFilter
+filter: $(BUILD_DIR)/MultiModeFilter.$(SO_EXT)
 
 # Build SimpleGain plugin as a single shared library
 $(BUILD_DIR)/SimpleGain.$(SO_EXT): examples/gain/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
@@ -65,6 +69,15 @@ $(BUILD_DIR)/SimpleDelay.$(SO_EXT): examples/delay/main.go $(BRIDGE_DIR)/bridge.
 		-o $@ \
 		-ldflags="-s -w" \
 		./examples/delay
+
+# Build MultiModeFilter plugin as a single shared library
+$(BUILD_DIR)/MultiModeFilter.$(SO_EXT): examples/filter/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building MultiModeFilter VST3 plugin as single library"
+	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
+		-o $@ \
+		-ldflags="-s -w" \
+		./examples/filter
 
 # Create VST3 bundle
 bundle: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
@@ -95,6 +108,14 @@ install: all-examples
 	@rm -rf ~/.vst3/SimpleDelay.vst3
 	@cp -r $(BUILD_DIR)/SimpleDelay.vst3 ~/.vst3/
 	@echo "Installed: ~/.vst3/SimpleDelay.vst3"
+	@echo "Creating and installing MultiModeFilter.vst3 bundle"
+	@rm -rf $(BUILD_DIR)/MultiModeFilter.vst3
+	@mkdir -p $(BUILD_DIR)/MultiModeFilter.vst3/Contents/$(VST3_ARCH)
+	@cp $(BUILD_DIR)/MultiModeFilter.$(SO_EXT) $(BUILD_DIR)/MultiModeFilter.vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/MultiModeFilter.vst3/Contents/$(VST3_ARCH)/MultiModeFilter.$(SO_EXT)
+	@rm -rf ~/.vst3/MultiModeFilter.vst3
+	@cp -r $(BUILD_DIR)/MultiModeFilter.vst3 ~/.vst3/
+	@echo "Installed: ~/.vst3/MultiModeFilter.vst3"
 	@echo "All example plugins installed successfully"
 
 # Alias for install
@@ -161,6 +182,7 @@ help:
 	@echo "Build targets:"
 	@echo "  make gain         - Build the SimpleGain example plugin"
 	@echo "  make delay        - Build the SimpleDelay example plugin"
+	@echo "  make filter       - Build the MultiModeFilter example plugin"
 	@echo "  make all-examples - Build all example plugins"
 	@echo "  make bundle       - Create VST3 bundle for current plugin"
 	@echo "  make install      - Build and install all example plugins to ~/.vst3"
@@ -181,6 +203,6 @@ help:
 	@echo ""
 	@echo "  make help         - Show this help message"
 
-.PHONY: all all-examples gain delay bundle install install-all clean help \
+.PHONY: all all-examples gain delay filter bundle install install-all clean help \
 	test test-go test-validate test-quick test-extensive \
 	test-local test-bundle test-list test-selftest test-all
