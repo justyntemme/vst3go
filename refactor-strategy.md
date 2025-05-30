@@ -45,14 +45,143 @@ All intelligence, convenience, and developer experience lives in Go:
 ### Layer 3: DSP & Audio Utilities
 - **Purpose**: Common audio processing building blocks
 - **Scope**: Filters, oscillators, envelopes, effects, utilities
-- **Design**: High-performance, zero-allocation where possible
+- **Design**: High-performance, **zero allocations in audio path**
 - **Example**: Biquad filters, ADSR envelopes, delay lines
+- **Critical**: All allocations happen at initialization, never during processing
 
 ### Layer 4: Developer Conveniences
 - **Purpose**: Productivity tools and helpers
 - **Scope**: Builders, templates, code generation, common patterns
 - **Design**: Optional, extensible, documentation-focused
 - **Example**: Plugin builder API, project templates, debug helpers
+
+## Zero-Allocation Audio Processing Design
+
+### Core Principle: Pre-allocate Everything
+
+The audio processing path must have **zero allocations** to ensure:
+- Consistent low latency
+- No garbage collection pauses
+- Predictable performance
+- Real-time safety
+
+### Allocation Strategy
+
+#### 1. Initialization Phase (Allocations Allowed)
+```go
+// Plugin initialization - allocate all buffers here
+func (p *Plugin) Initialize(sampleRate float64, maxBlockSize int) error {
+    // Pre-allocate all working buffers
+    p.workBuffer = make([]float32, maxBlockSize)
+    p.tempBuffer = make([]float32, maxBlockSize)
+    
+    // Pre-allocate all DSP components
+    p.filter = filter.NewBiquad()
+    p.delay = delay.NewLine(1000, sampleRate) // 1 second buffer
+    p.reverb = reverb.New(reverb.Config{
+        RoomSize: 0.8,
+        Damping:  0.5,
+        PreAllocSize: maxBlockSize,
+    })
+    
+    return nil
+}
+```
+
+#### 2. Processing Phase (Zero Allocations)
+```go
+// Audio callback - MUST NOT allocate
+func (p *Plugin) ProcessAudio(input, output [][]float32) {
+    // Use pre-allocated buffers
+    samples := len(input[0])
+    
+    // Slice existing buffers - no allocation
+    work := p.workBuffer[:samples]
+    temp := p.tempBuffer[:samples]
+    
+    // All DSP operations use pre-allocated state
+    for ch := range input {
+        copy(work, input[ch])        // No allocation
+        p.filter.Process(work)       // In-place, no allocation
+        p.delay.ProcessBlock(work, temp, p.delayTime) // No allocation
+        p.mixer.Mix(work, temp, output[ch], p.mixLevel) // No allocation
+    }
+}
+```
+
+### DSP Component Design Rules
+
+#### 1. State Allocation
+```go
+type Oscillator struct {
+    // All state pre-allocated
+    phase      float64
+    sampleRate float64
+    // Pre-computed values to avoid allocations
+    phaseIncrement float64
+}
+
+func (o *Oscillator) SetFrequency(hz float64) {
+    // Pre-compute to avoid division in audio path
+    o.phaseIncrement = hz / o.sampleRate
+}
+```
+
+#### 2. Buffer Management
+```go
+type BufferPool struct {
+    buffers [][]float32
+    size    int
+}
+
+// Get buffer from pool - no allocation
+func (p *BufferPool) Get() []float32 {
+    if len(p.buffers) > 0 {
+        buf := p.buffers[len(p.buffers)-1]
+        p.buffers = p.buffers[:len(p.buffers)-1]
+        return buf
+    }
+    panic("buffer pool empty - this should never happen")
+}
+```
+
+#### 3. Parameter Smoothing
+```go
+type Smoother struct {
+    current, target float32
+    rate           float32  // Pre-calculated
+}
+
+// Update without allocation
+func (s *Smoother) Process() float32 {
+    s.current += (s.target - s.current) * s.rate
+    return s.current
+}
+```
+
+### Framework Guarantees
+
+The framework will ensure zero allocations by:
+
+1. **Pre-allocation Hooks**: Framework calls initialization before audio starts
+2. **Buffer Reuse**: Framework manages buffer pools for common sizes
+3. **Static Dispatch**: No interface allocations in audio path
+4. **Compile-Time Checks**: Build tags to detect allocations in debug builds
+
+```go
+// +build debug
+
+// Debug mode - detect allocations
+func (p *Plugin) ProcessAudio(input, output [][]float32) {
+    before := runtime.MemStats.Alloc
+    p.processAudioImpl(input, output)
+    after := runtime.MemStats.Alloc
+    
+    if after > before {
+        panic("allocation detected in audio path!")
+    }
+}
+```
 
 ## Implementation Phases
 
@@ -184,14 +313,14 @@ type AudioProcessor interface {
     ProcessAudio(input, output [][]float32)
 }
 
-// Framework handles ALL the boilerplate
+// Framework handles ALL the boilerplate - with zero allocations
 func (b *Base) Process(data *vst3.ProcessData) vst3.Result {
-    // Framework handles:
-    // - Parameter updates
-    // - Event processing
-    // - Buffer management
-    // - Sample rate changes
-    // - Bypass handling
+    // Framework handles (all zero-allocation):
+    // - Parameter updates (pre-allocated queues)
+    // - Event processing (reusable event buffers)
+    // - Buffer management (slice existing arrays)
+    // - Sample rate changes (update pre-allocated state)
+    // - Bypass handling (in-place buffer copy)
     
     // Developer only implements ProcessAudio
     processor := b.getProcessor().(AudioProcessor)
@@ -310,9 +439,15 @@ func (p *Processor) Process(eventList vst3.IEventList) {
 }
 
 ### Phase 3: DSP Package Implementation
-**Goal**: Provide comprehensive audio processing utilities
+**Goal**: Provide comprehensive audio processing utilities with zero allocations
 
-#### 1. Filter Package - Clean, Performant APIs
+#### Performance Critical Requirements
+- **Zero Allocations**: No memory allocations in the audio processing path
+- **Pre-allocation**: All buffers and state allocated during initialization
+- **Cache-Friendly**: Data structures optimized for CPU cache efficiency
+- **SIMD-Ready**: Structures aligned for potential SIMD optimizations
+
+#### 1. Filter Package - Clean, Performant APIs with Zero Allocations
 ```go
 // pkg/dsp/filter/biquad.go
 package filter
@@ -347,8 +482,9 @@ func Lowpass(cutoff, sampleRate float64) *Biquad {
     }
 }
 
-// In-place processing for efficiency
+// In-place processing - zero allocations
 func (b *Biquad) Process(samples []float32) {
+    // No allocations - direct mutation of input buffer
     for i := range samples {
         input := samples[i]
         output := b.a0*input + b.a1*b.x1 + b.a2*b.x2 - b.b1*b.y1 - b.b2*b.y2
@@ -360,6 +496,12 @@ func (b *Biquad) Process(samples []float32) {
         
         samples[i] = output
     }
+}
+
+// Process stereo - reuses existing buffers
+func (b *Biquad) ProcessStereo(left, right []float32) {
+    b.Process(left)  // In-place, no allocation
+    b.Process(right) // In-place, no allocation
 }
 
 // State variable filter for more flexibility
@@ -478,40 +620,54 @@ func (e *ADSR) Process() float32 {
 }
 ```
 
-#### 4. Delay Package - Time-Based Effects
+#### 4. Delay Package - Time-Based Effects with Pre-allocated Buffers
 ```go
 // pkg/dsp/delay/line.go
 package delay
 
 type Line struct {
-    buffer     []float32
+    buffer     []float32  // Pre-allocated at creation
     writeIndex int
     maxDelay   int
+    // Pre-calculated for zero-allocation processing
+    invSampleRate float32
 }
 
 func NewLine(maxDelayMs float64, sampleRate float64) *Line {
     samples := int(maxDelayMs * sampleRate / 1000.0)
     return &Line{
-        buffer:   make([]float32, samples),
-        maxDelay: samples,
+        buffer:        make([]float32, samples), // One-time allocation
+        maxDelay:      samples,
+        invSampleRate: float32(1000.0 / sampleRate),
     }
 }
 
-func (d *Line) Process(input float32, delayMs float64, sampleRate float64) float32 {
+// Zero allocations during processing
+func (d *Line) Process(input float32, delayMs float32) float32 {
     // Write input
     d.buffer[d.writeIndex] = input
     
-    // Calculate read position
-    delaySamples := int(delayMs * sampleRate / 1000.0)
+    // Calculate read position - no allocations
+    delaySamples := int(delayMs * d.invSampleRate)
     readIndex := d.writeIndex - delaySamples
     if readIndex < 0 {
         readIndex += len(d.buffer)
     }
     
     // Advance write position
-    d.writeIndex = (d.writeIndex + 1) % len(d.buffer)
+    d.writeIndex++
+    if d.writeIndex >= len(d.buffer) {
+        d.writeIndex = 0
+    }
     
     return d.buffer[readIndex]
+}
+
+// Process block - zero allocations
+func (d *Line) ProcessBlock(input, output []float32, delayMs float32) {
+    for i := range input {
+        output[i] = d.Process(input[i], delayMs)
+    }
 }
 
 // Multi-tap delay for complex effects
@@ -999,6 +1155,8 @@ Process(func(ctx *ProcessContext) {
 - Zero business logic in C bridge
 - 100% test coverage for framework packages
 - Sub-microsecond overhead for framework abstractions
+- **Zero allocations in audio processing path** (verified by tests)
+- Pre-allocated buffer usage < 10MB for typical plugins
 
 ### Qualitative
 - Intuitive API design (Go-idiomatic)
