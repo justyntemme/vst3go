@@ -6,7 +6,7 @@ package main
 import "C"
 import (
 	"math"
-	
+
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
@@ -47,7 +47,7 @@ func NewGainProcessor() *GainProcessor {
 		params: param.NewRegistry(),
 		buses:  bus.NewStereoConfiguration(),
 	}
-	
+
 	// Add parameters
 	p.params.Add(
 		param.New(ParamGain, "Gain").
@@ -57,7 +57,7 @@ func NewGainProcessor() *GainProcessor {
 			Formatter(param.DecibelFormatter, param.DecibelParser).
 			Build(),
 	)
-	
+
 	// Add output meter (read-only)
 	p.params.Add(
 		param.New(ParamOutputLevel, "Output Level").
@@ -68,7 +68,7 @@ func NewGainProcessor() *GainProcessor {
 			Flags(param.IsReadOnly).
 			Build(),
 	)
-	
+
 	return p
 }
 
@@ -80,34 +80,34 @@ func (p *GainProcessor) Initialize(sampleRate float64, maxBlockSize int32) error
 func (p *GainProcessor) ProcessAudio(ctx *process.Context) {
 	// Get gain in dB
 	gainDB := ctx.ParamPlain(ParamGain)
-	
+
 	// Convert to linear
 	gain := float32(math.Pow(10.0, gainDB/20.0))
-	
+
 	// Process and measure
 	peak := float32(0)
-	
+
 	// Process each channel
 	numChannels := ctx.NumInputChannels()
 	if ctx.NumOutputChannels() < numChannels {
 		numChannels = ctx.NumOutputChannels()
 	}
-	
+
 	for ch := 0; ch < numChannels; ch++ {
 		input := ctx.Input[ch]
 		output := ctx.Output[ch]
-		
+
 		// Apply gain and find peak
 		for i := range input {
 			sample := input[i] * gain
 			output[i] = sample
-			
+
 			if abs := float32(math.Abs(float64(sample))); abs > peak {
 				peak = abs
 			}
 		}
 	}
-	
+
 	// Update output meter
 	peakDB := float64(-60) // minimum
 	if peak > 0 {
@@ -146,7 +146,7 @@ func init() {
 		URL:    "https://github.com/vst3go/examples",
 		Email:  "examples@vst3go.com",
 	})
-	
+
 	// Register our plugin
 	vst3plugin.Register(&GainPlugin{})
 }

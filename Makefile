@@ -125,6 +125,28 @@ install-all: install
 clean:
 	rm -rf $(BUILD_DIR)
 
+# Run Go linting
+lint:
+	@echo "Running Go linters"
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
+	golangci-lint run ./pkg/... ./examples/...
+
+# Run Go formatting check
+fmt-check:
+	@echo "Checking Go formatting"
+	@unformatted=$$(gofmt -l pkg/ examples/); \
+	if [ -n "$$unformatted" ]; then \
+		echo "The following files are not formatted:"; \
+		echo "$$unformatted"; \
+		echo "Run 'make fmt' to fix formatting"; \
+		exit 1; \
+	fi
+
+# Format Go code
+fmt:
+	@echo "Formatting Go code"
+	gofmt -w pkg/ examples/
+
 # Run Go tests
 test-go:
 	@echo "Running Go unit tests (non-CGO packages only)"
@@ -166,14 +188,14 @@ test-selftest:
 	validator -selftest
 
 # Run all tests
-test: test-go test-validate
+test: fmt-check lint test-go test-validate
 
 # Run automated validator test suite
 test-auto:
 	@./scripts/test_validator.sh $(PLUGIN_NAME)
 
 # Run all validation tests
-test-all: test-go test-validate test-extensive test-bundle
+test-all: fmt-check lint test-go test-validate test-extensive test-bundle
 
 # Help
 help:
@@ -189,8 +211,13 @@ help:
 	@echo "  make install-all  - Alias for 'make install'"
 	@echo "  make clean        - Remove all build artifacts"
 	@echo ""
+	@echo "Code Quality targets:"
+	@echo "  make lint         - Run Go linters"
+	@echo "  make fmt          - Format Go code"
+	@echo "  make fmt-check    - Check Go formatting"
+	@echo ""
 	@echo "Test targets:"
-	@echo "  make test         - Run Go tests and basic VST3 validation"
+	@echo "  make test         - Run formatting check, linting, Go tests and basic VST3 validation"
 	@echo "  make test-go      - Run only Go unit tests"
 	@echo "  make test-validate - Run VST3 validator on the plugin"
 	@echo "  make test-quick   - Run quick validation (errors only)"
@@ -199,10 +226,10 @@ help:
 	@echo "  make test-bundle  - Run validation on the VST3 bundle"
 	@echo "  make test-list    - List all installed VST3 plugins"
 	@echo "  make test-selftest - Run validator selftest"
-	@echo "  make test-all     - Run all tests (Go + all validations)"
+	@echo "  make test-all     - Run all tests (formatting, linting, Go + all validations)"
 	@echo ""
 	@echo "  make help         - Show this help message"
 
 .PHONY: all all-examples gain delay filter bundle install install-all clean help \
-	test test-go test-validate test-quick test-extensive \
+	lint fmt fmt-check test test-go test-validate test-quick test-extensive \
 	test-local test-bundle test-list test-selftest test-all

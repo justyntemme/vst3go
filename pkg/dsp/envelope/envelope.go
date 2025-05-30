@@ -17,18 +17,18 @@ const (
 // ADSR implements an Attack-Decay-Sustain-Release envelope generator
 type ADSR struct {
 	sampleRate float64
-	
+
 	// Parameters (in seconds for A,D,R and 0-1 for S)
 	attack  float64
 	decay   float64
 	sustain float64
 	release float64
-	
+
 	// Coefficients (pre-calculated for efficiency)
 	attackCoef  float64
 	decayCoef   float64
 	releaseCoef float64
-	
+
 	// State
 	stage  Stage
 	value  float64
@@ -141,28 +141,28 @@ func (e *ADSR) Next() float32 {
 			e.stage = StageDecay
 			e.target = e.sustain
 		}
-		
+
 	case StageDecay:
 		e.value = e.target + (e.value-e.target)*e.decayCoef
 		if e.value <= e.sustain+0.001 {
 			e.value = e.sustain
 			e.stage = StageSustain
 		}
-		
+
 	case StageSustain:
 		e.value = e.sustain
-		
+
 	case StageRelease:
 		e.value = e.target + (e.value-e.target)*e.releaseCoef
 		if e.value <= 0.001 {
 			e.value = 0.0
 			e.stage = StageIdle
 		}
-		
+
 	case StageIdle:
 		e.value = 0.0
 	}
-	
+
 	return float32(e.value)
 }
 
@@ -183,15 +183,15 @@ func (e *ADSR) ProcessMultiply(buffer []float32) {
 // AR implements a simple Attack-Release envelope
 type AR struct {
 	sampleRate float64
-	
+
 	// Parameters
 	attack  float64
 	release float64
-	
+
 	// Coefficients
 	attackCoef  float64
 	releaseCoef float64
-	
+
 	// State
 	active bool
 	value  float64
@@ -265,12 +265,12 @@ func (e *AR) ProcessMultiply(buffer []float32) {
 
 // Follower implements an envelope follower for dynamics processing
 type Follower struct {
-	sampleRate float64
-	attack     float64
-	release    float64
-	attackCoef float64
+	sampleRate  float64
+	attack      float64
+	release     float64
+	attackCoef  float64
 	releaseCoef float64
-	envelope   float64
+	envelope    float64
 }
 
 // NewFollower creates a new envelope follower
@@ -310,14 +310,14 @@ func (f *Follower) Process(input, output []float32) {
 		if absInput < 0 {
 			absInput = -absInput
 		}
-		
+
 		// Apply attack or release
 		if absInput > f.envelope {
 			f.envelope = absInput + (f.envelope-absInput)*f.attackCoef
 		} else {
 			f.envelope = absInput + (f.envelope-absInput)*f.releaseCoef
 		}
-		
+
 		output[i] = float32(f.envelope)
 	}
 }
@@ -328,12 +328,12 @@ func (f *Follower) Follow(input float32) float32 {
 	if absInput < 0 {
 		absInput = -absInput
 	}
-	
+
 	if absInput > f.envelope {
 		f.envelope = absInput + (f.envelope-absInput)*f.attackCoef
 	} else {
 		f.envelope = absInput + (f.envelope-absInput)*f.releaseCoef
 	}
-	
+
 	return float32(f.envelope)
 }

@@ -19,10 +19,10 @@ type Parameter struct {
 	StepCount    int32
 	Flags        uint32
 	UnitID       int32
-	
+
 	// Atomic value for lock-free access in audio thread
 	value uint64 // Store as uint64 for atomic operations
-	
+
 	// Value formatting
 	formatFunc func(float64) string
 	parseFunc  func(string) (float64, error)
@@ -53,7 +53,7 @@ func (p *Parameter) SetValue(value float64) {
 	} else if value > 1 {
 		value = 1
 	}
-	
+
 	atomic.StoreUint64(&p.value, float64bits(value))
 }
 
@@ -69,7 +69,7 @@ func (p *Parameter) SetPlainValue(plain float64) {
 		p.SetValue(0)
 		return
 	}
-	
+
 	normalized := (plain - p.Min) / (p.Max - p.Min)
 	p.SetValue(normalized)
 }
@@ -83,13 +83,13 @@ func (p *Parameter) SetFormatter(format func(float64) string, parse func(string)
 // FormatValue returns formatted parameter value
 func (p *Parameter) FormatValue(normalized float64) string {
 	plain := p.Denormalize(normalized)
-	
+
 	if p.formatFunc != nil {
 		result := p.formatFunc(plain)
 		// fmt.Printf("Parameter.FormatValue: id=%d, norm=%.3f, plain=%.3f -> '%s'\n", p.ID, normalized, plain, result)
 		return result
 	}
-	
+
 	// Default formatting
 	if p.StepCount > 0 {
 		// For discrete parameters, show integer

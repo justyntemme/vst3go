@@ -44,7 +44,7 @@ const (
 type Error int
 
 const (
-	ErrNotImplemented Error = -1
+	ErrNotImplemented  Error = -1
 	ErrInvalidArgument Error = -2
 )
 

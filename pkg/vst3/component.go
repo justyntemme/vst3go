@@ -25,7 +25,7 @@ type IComponent interface {
 	// IPluginBase methods
 	Initialize(context interface{}) error
 	Terminate() error
-	
+
 	// IComponent methods
 	GetControllerClassID() [16]byte
 	SetIOMode(mode int32) error
@@ -55,7 +55,7 @@ type IEditController interface {
 	// IPluginBase methods
 	Initialize(context interface{}) error
 	Terminate() error
-	
+
 	// IEditController methods
 	SetComponentState(state []byte) error
 	SetState(state []byte) error

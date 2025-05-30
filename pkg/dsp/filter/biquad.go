@@ -59,16 +59,16 @@ func (b *Biquad) Process(buffer []float32, channel int) {
 	// Process samples
 	for i := range buffer {
 		x0 := buffer[i]
-		
+
 		// Direct Form I
 		y0 := b.b0*x0 + b.b1*x1 + b.b2*x2 - b.a1*y1 - b.a2*y2
-		
+
 		// Update state
 		x2 = x1
 		x1 = x0
 		y2 = y1
 		y1 = y0
-		
+
 		buffer[i] = y0
 	}
 
@@ -104,7 +104,7 @@ func (b *Biquad) SetLowpass(sampleRate, frequency, q float64) {
 	a1 := -2.0 * cosOmega
 	a2 := 1.0 - alpha
 
-	b.SetCoefficients(float32(b0), float32(b1), float32(b2), 
+	b.SetCoefficients(float32(b0), float32(b1), float32(b2),
 		float32(a0), float32(a1), float32(a2))
 }
 
@@ -122,7 +122,7 @@ func (b *Biquad) SetHighpass(sampleRate, frequency, q float64) {
 	a1 := -2.0 * cosOmega
 	a2 := 1.0 - alpha
 
-	b.SetCoefficients(float32(b0), float32(b1), float32(b2), 
+	b.SetCoefficients(float32(b0), float32(b1), float32(b2),
 		float32(a0), float32(a1), float32(a2))
 }
 
@@ -140,7 +140,7 @@ func (b *Biquad) SetBandpass(sampleRate, frequency, q float64) {
 	a1 := -2.0 * cosOmega
 	a2 := 1.0 - alpha
 
-	b.SetCoefficients(float32(b0), float32(b1), float32(b2), 
+	b.SetCoefficients(float32(b0), float32(b1), float32(b2),
 		float32(a0), float32(a1), float32(a2))
 }
 
@@ -158,7 +158,7 @@ func (b *Biquad) SetNotch(sampleRate, frequency, q float64) {
 	a1 := -2.0 * cosOmega
 	a2 := 1.0 - alpha
 
-	b.SetCoefficients(float32(b0), float32(b1), float32(b2), 
+	b.SetCoefficients(float32(b0), float32(b1), float32(b2),
 		float32(a0), float32(a1), float32(a2))
 }
 
@@ -176,7 +176,7 @@ func (b *Biquad) SetAllpass(sampleRate, frequency, q float64) {
 	a1 := -2.0 * cosOmega
 	a2 := 1.0 - alpha
 
-	b.SetCoefficients(float32(b0), float32(b1), float32(b2), 
+	b.SetCoefficients(float32(b0), float32(b1), float32(b2),
 		float32(a0), float32(a1), float32(a2))
 }
 
@@ -195,7 +195,7 @@ func (b *Biquad) SetPeakingEQ(sampleRate, frequency, q, gainDB float64) {
 	a1 := -2.0 * cosOmega
 	a2 := 1.0 - alpha/A
 
-	b.SetCoefficients(float32(b0), float32(b1), float32(b2), 
+	b.SetCoefficients(float32(b0), float32(b1), float32(b2),
 		float32(a0), float32(a1), float32(a2))
 }
 
@@ -206,18 +206,18 @@ func (b *Biquad) SetLowShelf(sampleRate, frequency, q, gainDB float64) {
 	cosOmega := math.Cos(omega)
 	A := math.Pow(10.0, gainDB/40.0)
 	alpha := sinOmega / (2.0 * q)
-	
+
 	sqrtA := math.Sqrt(A)
 	sqrtAAlpha := 2.0 * sqrtA * alpha
 
-	b0 := A * ((A+1) - (A-1)*cosOmega + sqrtAAlpha)
-	b1 := 2.0 * A * ((A-1) - (A+1)*cosOmega)
-	b2 := A * ((A+1) - (A-1)*cosOmega - sqrtAAlpha)
-	a0 := (A+1) + (A-1)*cosOmega + sqrtAAlpha
-	a1 := -2.0 * ((A-1) + (A+1)*cosOmega)
-	a2 := (A+1) + (A-1)*cosOmega - sqrtAAlpha
+	b0 := A * ((A + 1) - (A-1)*cosOmega + sqrtAAlpha)
+	b1 := 2.0 * A * ((A - 1) - (A+1)*cosOmega)
+	b2 := A * ((A + 1) - (A-1)*cosOmega - sqrtAAlpha)
+	a0 := (A + 1) + (A-1)*cosOmega + sqrtAAlpha
+	a1 := -2.0 * ((A - 1) + (A+1)*cosOmega)
+	a2 := (A + 1) + (A-1)*cosOmega - sqrtAAlpha
 
-	b.SetCoefficients(float32(b0), float32(b1), float32(b2), 
+	b.SetCoefficients(float32(b0), float32(b1), float32(b2),
 		float32(a0), float32(a1), float32(a2))
 }
 
@@ -228,17 +228,17 @@ func (b *Biquad) SetHighShelf(sampleRate, frequency, q, gainDB float64) {
 	cosOmega := math.Cos(omega)
 	A := math.Pow(10.0, gainDB/40.0)
 	alpha := sinOmega / (2.0 * q)
-	
+
 	sqrtA := math.Sqrt(A)
 	sqrtAAlpha := 2.0 * sqrtA * alpha
 
-	b0 := A * ((A+1) + (A-1)*cosOmega + sqrtAAlpha)
-	b1 := -2.0 * A * ((A-1) + (A+1)*cosOmega)
-	b2 := A * ((A+1) + (A-1)*cosOmega - sqrtAAlpha)
-	a0 := (A+1) - (A-1)*cosOmega + sqrtAAlpha
-	a1 := 2.0 * ((A-1) - (A+1)*cosOmega)
-	a2 := (A+1) - (A-1)*cosOmega - sqrtAAlpha
+	b0 := A * ((A + 1) + (A-1)*cosOmega + sqrtAAlpha)
+	b1 := -2.0 * A * ((A - 1) + (A+1)*cosOmega)
+	b2 := A * ((A + 1) + (A-1)*cosOmega - sqrtAAlpha)
+	a0 := (A + 1) - (A-1)*cosOmega + sqrtAAlpha
+	a1 := 2.0 * ((A - 1) - (A+1)*cosOmega)
+	a2 := (A + 1) - (A-1)*cosOmega - sqrtAAlpha
 
-	b.SetCoefficients(float32(b0), float32(b1), float32(b2), 
+	b.SetCoefficients(float32(b0), float32(b1), float32(b2),
 		float32(a0), float32(a1), float32(a2))
 }

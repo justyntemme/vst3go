@@ -91,18 +91,18 @@ func NewMonoConfiguration() *Configuration {
 // GetBusCount returns the number of buses for a given type and direction
 func (c *Configuration) GetBusCount(mediaType MediaType, direction Direction) int32 {
 	count := int32(0)
-	
+
 	buses := c.audioBuses
 	if mediaType == MediaTypeEvent {
 		buses = c.eventBuses
 	}
-	
+
 	for _, bus := range buses {
 		if bus.Direction == direction {
 			count++
 		}
 	}
-	
+
 	return count
 }
 
@@ -112,7 +112,7 @@ func (c *Configuration) GetBusInfo(mediaType MediaType, direction Direction, ind
 	if mediaType == MediaTypeEvent {
 		buses = c.eventBuses
 	}
-	
+
 	busIndex := int32(0)
 	for i := range buses {
 		if buses[i].Direction == direction {
@@ -122,7 +122,7 @@ func (c *Configuration) GetBusInfo(mediaType MediaType, direction Direction, ind
 			busIndex++
 		}
 	}
-	
+
 	return nil
 }
 

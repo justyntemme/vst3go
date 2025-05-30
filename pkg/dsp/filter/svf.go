@@ -10,7 +10,7 @@ type SVF struct {
 	// Filter parameters
 	g float32 // frequency coefficient
 	k float32 // damping coefficient (1/Q)
-	
+
 	// State variables (per-channel)
 	ic1eq []float32 // integrator 1 state
 	ic2eq []float32 // integrator 2 state
@@ -63,27 +63,27 @@ func (s *SVF) ProcessSample(input float32, channel int) SVFOutputs {
 	// Get state for this channel
 	ic1eq := s.ic1eq[channel]
 	ic2eq := s.ic2eq[channel]
-	
+
 	// Compute common terms
 	g := s.g
 	k := s.k
 	a1 := 1.0 / (1.0 + g*(g+k))
 	a2 := g * a1
 	a3 := g * a2
-	
+
 	// Compute outputs
 	v3 := input - ic2eq
 	v1 := a1*ic1eq + a2*v3
 	v2 := ic2eq + a2*ic1eq + a3*v3
-	
+
 	// Update state
 	ic1eq = 2.0*v1 - ic1eq
 	ic2eq = 2.0*v2 - ic2eq
-	
+
 	// Save state
 	s.ic1eq[channel] = ic1eq
 	s.ic2eq[channel] = ic2eq
-	
+
 	// Return all outputs
 	return SVFOutputs{
 		Lowpass:  v2,
@@ -129,10 +129,10 @@ func (s *SVF) ProcessNotch(buffer []float32, channel int) {
 func (s *SVF) ProcessMixed(buffer []float32, channel int, lpMix, hpMix, bpMix, notchMix float32) {
 	for i := range buffer {
 		outputs := s.ProcessSample(buffer[i], channel)
-		buffer[i] = outputs.Lowpass*lpMix + 
-		           outputs.Highpass*hpMix + 
-		           outputs.Bandpass*bpMix + 
-		           outputs.Notch*notchMix
+		buffer[i] = outputs.Lowpass*lpMix +
+			outputs.Highpass*hpMix +
+			outputs.Bandpass*bpMix +
+			outputs.Notch*notchMix
 	}
 }
 
@@ -162,11 +162,11 @@ func (m *MultiModeSVF) SetMode(mode float64) {
 // Process applies the multi-mode filter with morphing - no allocations
 func (m *MultiModeSVF) Process(buffer []float32, channel int) {
 	mode := m.mode * 4.0 // Scale to 0-4
-	
+
 	// Determine which modes we're between and the mix amount
 	var mix float32
 	var mode1, mode2 int
-	
+
 	if mode < 1.0 {
 		// Between LP and BP
 		mode1, mode2 = 0, 1
@@ -184,11 +184,11 @@ func (m *MultiModeSVF) Process(buffer []float32, channel int) {
 		mode1, mode2 = 3, 0
 		mix = mode - 3.0
 	}
-	
+
 	// Process with morphing
 	for i := range buffer {
 		outputs := m.ProcessSample(buffer[i], channel)
-		
+
 		// Get the two filter outputs to morph between
 		var out1, out2 float32
 		switch mode1 {
@@ -201,7 +201,7 @@ func (m *MultiModeSVF) Process(buffer []float32, channel int) {
 		case 3:
 			out1 = outputs.Notch
 		}
-		
+
 		switch mode2 {
 		case 0:
 			out2 = outputs.Lowpass
@@ -212,7 +212,7 @@ func (m *MultiModeSVF) Process(buffer []float32, channel int) {
 		case 3:
 			out2 = outputs.Notch
 		}
-		
+
 		// Linear interpolation between modes
 		buffer[i] = out1*(1.0-mix) + out2*mix
 	}

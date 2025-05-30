@@ -18,10 +18,10 @@ func NewBase(info Info) *Base {
 		Info:   info,
 		params: param.NewRegistry(),
 	}
-	
+
 	// Initialize state manager with parameter registry
 	b.state = state.NewManager(b.params)
-	
+
 	return b
 }
 
