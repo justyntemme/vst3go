@@ -118,7 +118,7 @@ func (s *StreamWrapper) WriteString(str string) error {
 		return err
 	}
 	// Write string data
-	if len(str) > 0 {
+	if str != "" {
 		_, err := s.Write([]byte(str))
 		return err
 	}

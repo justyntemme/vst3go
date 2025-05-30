@@ -7,10 +7,15 @@ import "math"
 type Stage int
 
 const (
+	// StageIdle represents envelope idle state
 	StageIdle Stage = iota
+	// StageAttack represents envelope attack phase
 	StageAttack
+	// StageDecay represents envelope decay phase
 	StageDecay
+	// StageSustain represents envelope sustain phase
 	StageSustain
+	// StageRelease represents envelope release phase
 	StageRelease
 )
 

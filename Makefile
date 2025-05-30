@@ -128,8 +128,8 @@ clean:
 # Run Go linting
 lint:
 	@echo "Running Go linters"
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
-	golangci-lint run ./pkg/... ./examples/...
+	@export PATH="$$HOME/go/bin:$$PATH" && command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
+	@export PATH="$$HOME/go/bin:$$PATH" && golangci-lint run ./pkg/... ./examples/...
 
 # Run Go formatting check
 fmt-check:

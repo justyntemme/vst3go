@@ -10,7 +10,7 @@ type Info struct {
 }
 
 // UID converts the string ID to a 16-byte array for VST3
-func (i Info) UID() [16]byte {
+func (i *Info) UID() [16]byte {
 	// For now, use the same UIDs as before for compatibility
 	// TODO: Implement proper UUID generation from string ID
 

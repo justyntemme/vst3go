@@ -34,7 +34,7 @@ func newComponent(processor Processor) *componentImpl {
 }
 
 // IComponent implementation
-func (c *componentImpl) Initialize(context interface{}) error {
+func (c *componentImpl) Initialize(_ interface{}) error {
 	return c.processor.Initialize(48000, c.maxBlockSize) // Default sample rate
 }
 
@@ -47,7 +47,7 @@ func (c *componentImpl) GetControllerClassID() [16]byte {
 	return [16]byte{}
 }
 
-func (c *componentImpl) SetIOMode(mode int32) error {
+func (c *componentImpl) SetIOMode(_ int32) error {
 	return nil
 }
 

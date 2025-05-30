@@ -1,3 +1,4 @@
+// Package process provides audio processing context and utilities for VST3 audio processing.
 package process
 
 import (

@@ -1,3 +1,4 @@
+// Package param provides VST3 parameter management with formatting, validation, and thread-safe value handling.
 package param
 
 import (
@@ -85,9 +86,7 @@ func (p *Parameter) FormatValue(normalized float64) string {
 	plain := p.Denormalize(normalized)
 
 	if p.formatFunc != nil {
-		result := p.formatFunc(plain)
-		// fmt.Printf("Parameter.FormatValue: id=%d, norm=%.3f, plain=%.3f -> '%s'\n", p.ID, normalized, plain, result)
-		return result
+		return p.formatFunc(plain)
 	}
 
 	// Default formatting

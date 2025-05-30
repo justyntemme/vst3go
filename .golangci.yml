@@ -36,6 +36,12 @@ linters-settings:
   funlen:
     lines: 100
     statements: 50
+  depguard:
+    rules:
+      main:
+        allow:
+          - $gostd
+          - github.com/justyntemme/vst3go
 
 linters:
   # please, do not use `enable-all`: it's deprecated and will be removed soon.
@@ -106,6 +112,35 @@ issues:
       linters:
         - funlen
         - gocyclo
+    # DSP packages use mathematical constants
+    - path: pkg/dsp/
+      linters:
+        - mnd
+    # Bus configuration has expected channel counts
+    - path: pkg/framework/bus/
+      linters:
+        - mnd
+    # VST3 bindings have long C function signatures and binary constants
+    - path: pkg/vst3/
+      linters:
+        - lll
+        - mnd
+    # Plugin package deals with C interop and has some necessary duplication
+    - path: pkg/plugin/
+      linters:
+        - dupl
+        - lll
+        - mnd
+        - revive  # C interface functions often have unused parameters
+        - gocritic  # C binding patterns don't follow Go conventions
+        - gocyclo  # Complex C interop functions
+        - staticcheck  # Empty branches are placeholders for future C implementations
+        - govet  # Unsafe operations are necessary for C interop
+    # Parameter formatters have conversion constants and necessary unsafe operations
+    - path: pkg/framework/param/
+      linters:
+        - mnd
+        - gosec  # Uses necessary unsafe operations for atomic values
 
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all

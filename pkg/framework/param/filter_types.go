@@ -17,6 +17,11 @@ const (
 	FilterTypeHighShelf
 )
 
+const (
+	// unknownFilterType represents an unknown filter type
+	unknownFilterType = "Unknown"
+)
+
 // FilterTypeNames provides display names for filter types
 var FilterTypeNames = []string{
 	"Lowpass",
@@ -35,7 +40,7 @@ func FilterTypeFormatter(value float64) string {
 	if index >= 0 && index < len(FilterTypeNames) {
 		return FilterTypeNames[index]
 	}
-	return "Unknown"
+	return unknownFilterType
 }
 
 // FilterTypeParser parses filter type strings
@@ -117,7 +122,7 @@ func GateTypeFormatter(value float64) string {
 	if index >= 0 && index < len(GateTypeNames) {
 		return GateTypeNames[index]
 	}
-	return "Unknown"
+	return unknownFilterType
 }
 
 // GateTypeParser parses gate type strings

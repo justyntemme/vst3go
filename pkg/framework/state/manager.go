@@ -1,3 +1,4 @@
+// Package state provides VST3 plugin state management for parameter and custom data persistence.
 package state
 
 import (
@@ -6,6 +7,11 @@ import (
 	"io"
 
 	"github.com/justyntemme/vst3go/pkg/framework/param"
+)
+
+const (
+	// magicHeaderSize is the size of the VST3GO magic header
+	magicHeaderSize = 6
 )
 
 // Manager handles plugin state saving and loading
@@ -71,16 +77,15 @@ func (m *Manager) Save(w io.Writer) error {
 		}
 
 		return m.custom(w)
-	} else {
-		// No custom data
-		return binary.Write(w, binary.LittleEndian, uint32(0))
 	}
+	// No custom data
+	return binary.Write(w, binary.LittleEndian, uint32(0))
 }
 
 // Load reads the plugin state from a reader
 func (m *Manager) Load(r io.Reader) error {
 	// Read and verify magic header
-	header := make([]byte, 6)
+	header := make([]byte, magicHeaderSize)
 	if _, err := io.ReadFull(r, header); err != nil {
 		return err
 	}
