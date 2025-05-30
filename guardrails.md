@@ -50,7 +50,7 @@ Critical constraints for maintaining architectural integrity in development.
 ### Build System
 - Use `make install` exclusively (never CMake)
 - Test with `validator`
-- Focus on `gain` and `synth` examples only (no GUI)
+- All example plugins should be maintained and tested
 
 ### Code Quality
 - No placeholder implementations
