@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// Debug logging
+#ifdef DEBUG_VST3GO
+#define DBG_LOG(fmt, ...) fprintf(stderr, "[VST3GO] " fmt "\n", ##__VA_ARGS__)
+#else
+#define DBG_LOG(fmt, ...)
+#endif
+
 // Reference counting for our factory
 typedef struct {
     struct Steinberg_IPluginFactoryVtbl* vtbl;
@@ -36,10 +43,12 @@ static PluginFactory* globalFactory = NULL;
 // VST3 SDK entry point - this is what hosts look for
 __attribute__((visibility("default")))
 struct Steinberg_IPluginFactory* GetPluginFactory() {
+    DBG_LOG("GetPluginFactory called");
     if (!globalFactory) {
         globalFactory = (PluginFactory*)malloc(sizeof(PluginFactory));
         globalFactory->vtbl = &factoryVtbl;
         globalFactory->refCount = 1;
+        DBG_LOG("GetPluginFactory: Created factory at %p", globalFactory);
     }
     return (struct Steinberg_IPluginFactory*)globalFactory;
 }
@@ -114,13 +123,16 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE factory_getClassInfo(void* thisI
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE factory_createInstance(void* thisInterface, Steinberg_FIDString cid, Steinberg_FIDString iid, void** obj) {
+    DBG_LOG("factory_createInstance called");
     // Create instance through Go
     void* instance = GoCreateInstance(cid, iid);
     if (!instance) {
+        DBG_LOG("factory_createInstance: GoCreateInstance returned NULL");
         *obj = NULL;
         return ((Steinberg_tresult)-1); // kNoInterface
     }
     
+    DBG_LOG("factory_createInstance: Created instance at %p", instance);
     *obj = instance;
     return ((Steinberg_tresult)0);
 }

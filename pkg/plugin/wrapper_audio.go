@@ -130,6 +130,8 @@ func GoAudioSetProcessing(componentPtr unsafe.Pointer, state C.int32_t) C.Steinb
 
 //export GoAudioProcess
 func GoAudioProcess(componentPtr unsafe.Pointer, data unsafe.Pointer) C.Steinberg_tresult {
+	defer recoverPanic("GoAudioProcess")
+	
 	id := uintptr(componentPtr)
 	wrapper := getComponent(id)
 	if wrapper == nil {

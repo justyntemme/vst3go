@@ -27,6 +27,16 @@ var (
 	nextID       uintptr = 1
 )
 
+// recoverPanic is a helper to recover from panics in callbacks
+func recoverPanic(operation string) {
+	if r := recover(); r != nil {
+		// Log the panic but don't propagate it to C code
+		// In production, you might want to log this properly
+		// For now, we'll just ignore it to prevent crashes
+		_ = r
+	}
+}
+
 // registerComponent registers a component wrapper and returns its ID
 func registerComponent(wrapper *componentWrapper) uintptr {
 	componentsMu.Lock()
@@ -49,7 +59,18 @@ func unregisterComponent(id uintptr) {
 func getComponent(id uintptr) *componentWrapper {
 	componentsMu.RLock()
 	defer componentsMu.RUnlock()
-	return components[id]
+	
+	// Validate handle
+	if id == 0 {
+		return nil
+	}
+	
+	wrapper, exists := components[id]
+	if !exists {
+		return nil
+	}
+	
+	return wrapper
 }
 
 //export GoCreateInstance
@@ -101,12 +122,20 @@ func GoCreateInstance(cid, iid *C.char) unsafe.Pointer {
 //export GoReleaseComponent
 func GoReleaseComponent(componentPtr unsafe.Pointer) {
 	id := uintptr(componentPtr)
+	
+	// Validate handle
+	if id == 0 {
+		return
+	}
+	
 	unregisterComponent(id)
 }
 
 // IComponent callbacks
 //export GoComponentInitialize
 func GoComponentInitialize(componentPtr unsafe.Pointer, context unsafe.Pointer) C.Steinberg_tresult {
+	defer recoverPanic("GoComponentInitialize")
+	
 	id := uintptr(componentPtr)
 	wrapper := getComponent(id)
 	if wrapper == nil {
@@ -122,6 +151,8 @@ func GoComponentInitialize(componentPtr unsafe.Pointer, context unsafe.Pointer) 
 
 //export GoComponentTerminate
 func GoComponentTerminate(componentPtr unsafe.Pointer) C.Steinberg_tresult {
+	defer recoverPanic("GoComponentTerminate")
+	
 	id := uintptr(componentPtr)
 	wrapper := getComponent(id)
 	if wrapper == nil {

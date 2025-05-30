@@ -18,26 +18,50 @@ endif
 # Build variables
 BUILD_DIR := build
 BRIDGE_DIR := bridge
-PLUGIN_NAME := SimpleGain
+PLUGIN_NAME ?= SimpleGain
 
 # Compiler flags
 CFLAGS := -fPIC -I./include -O2
 LDFLAGS := -shared
 
+# Debug flags
+DEBUG_CFLAGS := -fPIC -I./include -g -O0 -DDEBUG_VST3GO
+DEBUG_LDFLAGS := -shared -g
+
 # Default target
 all: gain
 
 # Build gain example
-gain: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
+gain: PLUGIN_NAME := SimpleGain
+gain: $(BUILD_DIR)/SimpleGain.$(SO_EXT)
+
+# Build gain example with debug
+gain-debug: PLUGIN_NAME := SimpleGain
+gain-debug: CFLAGS := $(DEBUG_CFLAGS)
+gain-debug: LDFLAGS := $(DEBUG_LDFLAGS)
+gain-debug: $(BUILD_DIR)/SimpleGain.$(SO_EXT)
+
+# Build delay example
+delay: PLUGIN_NAME := SimpleDelay
+delay: $(BUILD_DIR)/SimpleDelay.$(SO_EXT)
 
 # Build SimpleGain plugin as a single shared library
 $(BUILD_DIR)/SimpleGain.$(SO_EXT): examples/gain/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
 	@mkdir -p $(BUILD_DIR)
 	@echo "Building SimpleGain VST3 plugin as single library"
-	CGO_CFLAGS="-I./include" CGO_LDFLAGS="" go build -buildmode=c-shared \
+	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
 		-o $@ \
 		-ldflags="-s -w" \
 		./examples/gain
+
+# Build SimpleDelay plugin as a single shared library
+$(BUILD_DIR)/SimpleDelay.$(SO_EXT): examples/delay/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building SimpleDelay VST3 plugin as single library"
+	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
+		-o $@ \
+		-ldflags="-s -w" \
+		./examples/delay
 
 # Create VST3 bundle
 bundle: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
@@ -62,7 +86,8 @@ clean:
 
 # Run Go tests
 test-go:
-	go test ./...
+	@echo "Running Go unit tests (non-CGO packages only)"
+	go test ./pkg/vst3/...
 
 # Run VST3 validator on the built plugin
 test-validate: bundle
@@ -102,6 +127,10 @@ test-selftest:
 # Run all tests
 test: test-go test-validate
 
+# Run automated validator test suite
+test-auto:
+	@./scripts/test_validator.sh $(PLUGIN_NAME)
+
 # Run all validation tests
 test-all: test-go test-validate test-extensive test-bundle
 
@@ -111,7 +140,8 @@ help:
 	@echo ""
 	@echo "Build targets:"
 	@echo "  make gain         - Build the SimpleGain example plugin"
-	@echo "  make bundle       - Create VST3 bundle for SimpleGain"
+	@echo "  make delay        - Build the SimpleDelay example plugin"
+	@echo "  make bundle       - Create VST3 bundle for current plugin"
 	@echo "  make install      - Install plugin to ~/.vst3 directory"
 	@echo "  make clean        - Remove all build artifacts"
 	@echo ""

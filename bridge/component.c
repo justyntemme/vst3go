@@ -1,6 +1,14 @@
 #include "component.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+
+// Debug logging
+#ifdef DEBUG_VST3GO
+#define DBG_LOG(fmt, ...) fprintf(stderr, "[VST3GO] " fmt "\n", ##__VA_ARGS__)
+#else
+#define DBG_LOG(fmt, ...)
+#endif
 
 // Forward declare
 typedef struct Component Component;
@@ -143,8 +151,12 @@ static struct Steinberg_Vst_IEditControllerVtbl editControllerVtbl = {
 
 // Create a new component instance
 void* createComponent(void* goComponent) {
+    DBG_LOG("createComponent: Creating component with Go handle %p", goComponent);
     Component* component = (Component*)malloc(sizeof(Component));
-    if (!component) return NULL;
+    if (!component) {
+        DBG_LOG("createComponent: Failed to allocate memory");
+        return NULL;
+    }
     
     component->lpVtbl = &componentVtbl;
     component->audioProcessor.lpVtbl = &audioProcessorVtbl;
@@ -154,33 +166,39 @@ void* createComponent(void* goComponent) {
     component->refCount = 1;
     component->goComponent = goComponent;
     
+    DBG_LOG("createComponent: Component created at %p", component);
     return component;
 }
 
 // IUnknown implementation
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_queryInterface(void* thisInterface, const Steinberg_TUID iid, void** obj) {
     Component* component = (Component*)thisInterface;
+    DBG_LOG("component_queryInterface: component=%p", component);
     
     if (memcmp(iid, Steinberg_FUnknown_iid, sizeof(Steinberg_TUID)) == 0 ||
         memcmp(iid, Steinberg_IPluginBase_iid, sizeof(Steinberg_TUID)) == 0 ||
         memcmp(iid, Steinberg_Vst_IComponent_iid, sizeof(Steinberg_TUID)) == 0) {
+        DBG_LOG("component_queryInterface: Returning IComponent");
         *obj = component; // Return component itself, not vtable pointer
         component_addRef(thisInterface);
         return ((Steinberg_tresult)0);
     }
     
     if (memcmp(iid, Steinberg_Vst_IAudioProcessor_iid, sizeof(Steinberg_TUID)) == 0) {
+        DBG_LOG("component_queryInterface: Returning IAudioProcessor");
         *obj = &component->audioProcessor; // Return audio processor interface
         component_addRef(thisInterface);
         return ((Steinberg_tresult)0);
     }
     
     if (memcmp(iid, Steinberg_Vst_IEditController_iid, sizeof(Steinberg_TUID)) == 0) {
+        DBG_LOG("component_queryInterface: Returning IEditController");
         *obj = &component->editController; // Return edit controller interface
         component_addRef(thisInterface);
         return ((Steinberg_tresult)0);
     }
     
+    DBG_LOG("component_queryInterface: Interface not found");
     *obj = NULL;
     return ((Steinberg_tresult)-1);
 }
@@ -204,7 +222,10 @@ static Steinberg_uint32 SMTG_STDMETHODCALLTYPE component_release(void* thisInter
 // IPluginBase implementation
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_initialize(void* thisInterface, struct Steinberg_FUnknown* context) {
     Component* component = (Component*)thisInterface;
-    return GoComponentInitialize(component->goComponent, context);
+    DBG_LOG("component_initialize: component=%p, goComponent=%p", component, component->goComponent);
+    Steinberg_tresult result = GoComponentInitialize(component->goComponent, context);
+    DBG_LOG("component_initialize: result=%d", result);
+    return result;
 }
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE component_terminate(void* thisInterface) {
