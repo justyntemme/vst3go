@@ -31,6 +31,9 @@ DEBUG_LDFLAGS := -shared -g
 # Default target
 all: gain
 
+# Build all example plugins
+all-examples: gain delay
+
 # Build gain example
 gain: PLUGIN_NAME := SimpleGain
 gain: $(BUILD_DIR)/SimpleGain.$(SO_EXT)
@@ -72,13 +75,30 @@ bundle: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
 	@chmod +x $(BUILD_DIR)/$(PLUGIN_NAME).vst3/Contents/$(VST3_ARCH)/$(PLUGIN_NAME).$(SO_EXT)
 	@echo "VST3 bundle created: $(BUILD_DIR)/$(PLUGIN_NAME).vst3"
 
-# Install VST3 plugin to user's VST3 directory
-install: bundle
-	@echo "Installing $(PLUGIN_NAME).vst3 to ~/.vst3"
+# Install all example VST3 plugins to user's VST3 directory
+install: all-examples
+	@echo "Installing all example VST3 plugins to ~/.vst3"
 	@mkdir -p ~/.vst3
-	@rm -rf ~/.vst3/$(PLUGIN_NAME).vst3
-	@cp -r $(BUILD_DIR)/$(PLUGIN_NAME).vst3 ~/.vst3/
-	@echo "Installation complete: ~/.vst3/$(PLUGIN_NAME).vst3"
+	@echo "Creating and installing SimpleGain.vst3 bundle"
+	@rm -rf $(BUILD_DIR)/SimpleGain.vst3
+	@mkdir -p $(BUILD_DIR)/SimpleGain.vst3/Contents/$(VST3_ARCH)
+	@cp $(BUILD_DIR)/SimpleGain.$(SO_EXT) $(BUILD_DIR)/SimpleGain.vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/SimpleGain.vst3/Contents/$(VST3_ARCH)/SimpleGain.$(SO_EXT)
+	@rm -rf ~/.vst3/SimpleGain.vst3
+	@cp -r $(BUILD_DIR)/SimpleGain.vst3 ~/.vst3/
+	@echo "Installed: ~/.vst3/SimpleGain.vst3"
+	@echo "Creating and installing SimpleDelay.vst3 bundle"
+	@rm -rf $(BUILD_DIR)/SimpleDelay.vst3
+	@mkdir -p $(BUILD_DIR)/SimpleDelay.vst3/Contents/$(VST3_ARCH)
+	@cp $(BUILD_DIR)/SimpleDelay.$(SO_EXT) $(BUILD_DIR)/SimpleDelay.vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/SimpleDelay.vst3/Contents/$(VST3_ARCH)/SimpleDelay.$(SO_EXT)
+	@rm -rf ~/.vst3/SimpleDelay.vst3
+	@cp -r $(BUILD_DIR)/SimpleDelay.vst3 ~/.vst3/
+	@echo "Installed: ~/.vst3/SimpleDelay.vst3"
+	@echo "All example plugins installed successfully"
+
+# Alias for install
+install-all: install
 
 # Clean build artifacts
 clean:
@@ -141,8 +161,10 @@ help:
 	@echo "Build targets:"
 	@echo "  make gain         - Build the SimpleGain example plugin"
 	@echo "  make delay        - Build the SimpleDelay example plugin"
+	@echo "  make all-examples - Build all example plugins"
 	@echo "  make bundle       - Create VST3 bundle for current plugin"
-	@echo "  make install      - Install plugin to ~/.vst3 directory"
+	@echo "  make install      - Build and install all example plugins to ~/.vst3"
+	@echo "  make install-all  - Alias for 'make install'"
 	@echo "  make clean        - Remove all build artifacts"
 	@echo ""
 	@echo "Test targets:"
@@ -159,6 +181,6 @@ help:
 	@echo ""
 	@echo "  make help         - Show this help message"
 
-.PHONY: all gain bundle install clean help \
+.PHONY: all all-examples gain delay bundle install install-all clean help \
 	test test-go test-validate test-quick test-extensive \
 	test-local test-bundle test-list test-selftest test-all
