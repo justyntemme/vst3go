@@ -37,6 +37,11 @@ type GainProcessor struct {
 	buses  *bus.Configuration
 }
 
+const (
+	ParamGain = iota
+	ParamOutputLevel
+)
+
 func NewGainProcessor() *GainProcessor {
 	p := &GainProcessor{
 		params: param.NewRegistry(),
@@ -45,10 +50,22 @@ func NewGainProcessor() *GainProcessor {
 	
 	// Add parameters
 	p.params.Add(
-		param.New(vst3plugin.ParamIDGain, "Gain").
+		param.New(ParamGain, "Gain").
 			Range(-24, 24).
 			Default(0).
 			Unit("dB").
+			Formatter(param.DecibelFormatter, param.DecibelParser).
+			Build(),
+	)
+	
+	// Add output meter (read-only)
+	p.params.Add(
+		param.New(ParamOutputLevel, "Output Level").
+			Range(-60, 0).
+			Default(-60).
+			Unit("dB").
+			Formatter(param.DecibelFormatter, nil). // No parser needed for read-only
+			Flags(param.IsReadOnly).
 			Build(),
 	)
 	
@@ -62,10 +79,13 @@ func (p *GainProcessor) Initialize(sampleRate float64, maxBlockSize int32) error
 
 func (p *GainProcessor) ProcessAudio(ctx *process.Context) {
 	// Get gain in dB
-	gainDB := ctx.ParamPlain(vst3plugin.ParamIDGain)
+	gainDB := ctx.ParamPlain(ParamGain)
 	
 	// Convert to linear
 	gain := float32(math.Pow(10.0, gainDB/20.0))
+	
+	// Process and measure
+	peak := float32(0)
 	
 	// Process each channel
 	numChannels := ctx.NumInputChannels()
@@ -77,11 +97,26 @@ func (p *GainProcessor) ProcessAudio(ctx *process.Context) {
 		input := ctx.Input[ch]
 		output := ctx.Output[ch]
 		
-		// Apply gain
+		// Apply gain and find peak
 		for i := range input {
-			output[i] = input[i] * gain
+			sample := input[i] * gain
+			output[i] = sample
+			
+			if abs := float32(math.Abs(float64(sample))); abs > peak {
+				peak = abs
+			}
 		}
 	}
+	
+	// Update output meter
+	peakDB := float64(-60) // minimum
+	if peak > 0 {
+		peakDB = 20.0 * math.Log10(float64(peak))
+		if peakDB < -60 {
+			peakDB = -60
+		}
+	}
+	p.params.Get(ParamOutputLevel).SetValue(p.params.Get(ParamOutputLevel).Normalize(peakDB))
 }
 
 func (p *GainProcessor) GetParameters() *param.Registry {

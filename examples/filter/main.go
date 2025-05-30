@@ -5,6 +5,8 @@ package main
 // #include "../../bridge/component.c"
 import "C"
 import (
+	"fmt"
+	
 	"github.com/justyntemme/vst3go/pkg/dsp/filter"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
@@ -42,10 +44,10 @@ type FilterProcessor struct {
 
 // Parameter IDs
 const (
-	ParamCutoff    = 0
-	ParamResonance = 1
-	ParamMode      = 2
-	ParamMix       = 3
+	ParamFilterType = 0
+	ParamCutoff     = 1
+	ParamResonance  = 2
+	ParamMix        = 3
 )
 
 func NewFilterProcessor() *FilterProcessor {
@@ -58,25 +60,33 @@ func NewFilterProcessor() *FilterProcessor {
 	
 	// Add parameters
 	p.params.Add(
+		param.New(ParamFilterType, "Filter Type").
+			Range(0, 3).
+			Default(0).
+			Steps(4).
+			Formatter(param.FilterTypeFormatter, param.FilterTypeParser).
+			Build(),
+		
 		param.New(ParamCutoff, "Cutoff").
 			Range(20, 20000).
 			Default(1000).
 			Unit("Hz").
+			Formatter(param.FrequencyFormatter, param.FrequencyParser).
 			Build(),
 		
 		param.New(ParamResonance, "Resonance").
 			Range(0.5, 20).
 			Default(1).
-			Build(),
-		
-		param.New(ParamMode, "Mode").
-			Range(0, 1).
-			Default(0).
+			Formatter(func(v float64) string {
+				return fmt.Sprintf("Q: %.2f", v)
+			}, nil).
 			Build(),
 		
 		param.New(ParamMix, "Mix").
-			Range(0, 1).
-			Default(1).
+			Range(0, 100).
+			Default(100).
+			Unit("%").
+			Formatter(param.PercentFormatter, param.PercentParser).
 			Build(),
 	)
 	
@@ -91,14 +101,13 @@ func (p *FilterProcessor) Initialize(sampleRate float64, maxBlockSize int32) err
 
 func (p *FilterProcessor) ProcessAudio(ctx *process.Context) {
 	// Get parameter values
+	filterType := int(ctx.Param(ParamFilterType))
 	cutoff := ctx.ParamPlain(ParamCutoff)
 	resonance := ctx.ParamPlain(ParamResonance)
-	mode := ctx.Param(ParamMode)
-	mix := float32(ctx.Param(ParamMix))
+	mix := float32(ctx.Param(ParamMix) / 100.0) // Convert from percentage
 	
 	// Update filter parameters
 	p.svFilter.SetFrequencyAndQ(p.sampleRate, cutoff, resonance)
-	p.svFilter.SetMode(mode)
 	
 	// Process each channel
 	numChannels := ctx.NumInputChannels()
@@ -122,8 +131,17 @@ func (p *FilterProcessor) ProcessAudio(ctx *process.Context) {
 		// Copy input to work buffer
 		copy(workBuffer[:numSamples], input[:numSamples])
 		
-		// Process through filter
-		p.svFilter.Process(workBuffer[:numSamples], ch)
+		// Process through filter based on type
+		switch filterType {
+		case param.FilterTypeLowpass:
+			p.svFilter.ProcessLowpass(workBuffer[:numSamples], ch)
+		case param.FilterTypeHighpass:
+			p.svFilter.ProcessHighpass(workBuffer[:numSamples], ch)
+		case param.FilterTypeBandpass:
+			p.svFilter.ProcessBandpass(workBuffer[:numSamples], ch)
+		case param.FilterTypeNotch:
+			p.svFilter.ProcessNotch(workBuffer[:numSamples], ch)
+		}
 		
 		// Mix dry and wet
 		for i := 0; i < numSamples; i++ {

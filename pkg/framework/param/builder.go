@@ -89,6 +89,13 @@ func (b *Builder) Bypass() *Builder {
 	return b
 }
 
+// Formatter sets custom value formatting and parsing
+func (b *Builder) Formatter(format func(float64) string, parse func(string) (float64, error)) *Builder {
+	b.param.formatFunc = format
+	b.param.parseFunc = parse
+	return b
+}
+
 // Build returns the configured parameter
 func (b *Builder) Build() *Parameter {
 	// Initialize with default value

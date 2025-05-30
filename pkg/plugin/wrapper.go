@@ -201,8 +201,7 @@ func GoReleaseComponent(componentPtr unsafe.Pointer) {
 func GoComponentInitialize(componentPtr unsafe.Pointer, context unsafe.Pointer) C.Steinberg_tresult {
 	defer recoverPanic("GoComponentInitialize")
 	
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -218,8 +217,7 @@ func GoComponentInitialize(componentPtr unsafe.Pointer, context unsafe.Pointer) 
 func GoComponentTerminate(componentPtr unsafe.Pointer) C.Steinberg_tresult {
 	defer recoverPanic("GoComponentTerminate")
 	
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -233,8 +231,7 @@ func GoComponentTerminate(componentPtr unsafe.Pointer) C.Steinberg_tresult {
 
 //export GoComponentGetControllerClassId
 func GoComponentGetControllerClassId(componentPtr unsafe.Pointer, classId *C.char) {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return
 	}
@@ -245,8 +242,7 @@ func GoComponentGetControllerClassId(componentPtr unsafe.Pointer, classId *C.cha
 
 //export GoComponentSetIoMode
 func GoComponentSetIoMode(componentPtr unsafe.Pointer, mode C.int32_t) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -260,8 +256,7 @@ func GoComponentSetIoMode(componentPtr unsafe.Pointer, mode C.int32_t) C.Steinbe
 
 //export GoComponentGetBusCount
 func GoComponentGetBusCount(componentPtr unsafe.Pointer, mediaType, dir C.int32_t) C.int32_t {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return 0
 	}
@@ -271,8 +266,7 @@ func GoComponentGetBusCount(componentPtr unsafe.Pointer, mediaType, dir C.int32_
 
 //export GoComponentGetBusInfo
 func GoComponentGetBusInfo(componentPtr unsafe.Pointer, mediaType, dir, index C.int32_t, bus unsafe.Pointer) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -306,8 +300,7 @@ func GoComponentGetBusInfo(componentPtr unsafe.Pointer, mediaType, dir, index C.
 
 //export GoComponentActivateBus
 func GoComponentActivateBus(componentPtr unsafe.Pointer, mediaType, dir, index, state C.int32_t) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -321,8 +314,7 @@ func GoComponentActivateBus(componentPtr unsafe.Pointer, mediaType, dir, index, 
 
 //export GoComponentSetActive
 func GoComponentSetActive(componentPtr unsafe.Pointer, state C.int32_t) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -336,8 +328,7 @@ func GoComponentSetActive(componentPtr unsafe.Pointer, state C.int32_t) C.Steinb
 
 //export GoComponentSetState
 func GoComponentSetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -348,8 +339,7 @@ func GoComponentSetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.St
 
 //export GoComponentGetState
 func GoComponentGetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}

@@ -249,11 +249,19 @@ func (c *componentImpl) GetParameterInfo(index int32) (*vst3.ParameterInfo, erro
 }
 
 func (c *componentImpl) GetParamStringByValue(id uint32, value float64) (string, error) {
-	return "", nil
+	if p := c.processor.GetParameters().Get(id); p != nil {
+		result := p.FormatValue(value)
+		// fmt.Printf("Component.GetParamStringByValue: id=%d, value=%.3f -> '%s'\n", id, value, result)
+		return result, nil
+	}
+	return "", vst3.ErrInvalidArgument
 }
 
 func (c *componentImpl) GetParamValueByString(id uint32, str string) (float64, error) {
-	return 0, nil
+	if p := c.processor.GetParameters().Get(id); p != nil {
+		return p.ParseValue(str)
+	}
+	return 0, vst3.ErrInvalidArgument
 }
 
 func (c *componentImpl) NormalizedParamToPlain(id uint32, normalized float64) float64 {

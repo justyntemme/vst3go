@@ -12,8 +12,7 @@ import (
 // IEditController callbacks
 //export GoEditControllerSetComponentState
 func GoEditControllerSetComponentState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -24,8 +23,7 @@ func GoEditControllerSetComponentState(componentPtr unsafe.Pointer, state unsafe
 
 //export GoEditControllerSetState
 func GoEditControllerSetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -36,8 +34,7 @@ func GoEditControllerSetState(componentPtr unsafe.Pointer, state unsafe.Pointer)
 
 //export GoEditControllerGetState
 func GoEditControllerGetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -48,8 +45,7 @@ func GoEditControllerGetState(componentPtr unsafe.Pointer, state unsafe.Pointer)
 
 //export GoEditControllerGetParameterCount
 func GoEditControllerGetParameterCount(componentPtr unsafe.Pointer) C.int32_t {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return 0
 	}
@@ -59,8 +55,7 @@ func GoEditControllerGetParameterCount(componentPtr unsafe.Pointer) C.int32_t {
 
 //export GoEditControllerGetParameterInfo
 func GoEditControllerGetParameterInfo(componentPtr unsafe.Pointer, paramIndex C.int32_t, info *C.struct_Steinberg_Vst_ParameterInfo) C.Steinberg_tresult {
-	id := uintptr(componentPtr)
-	wrapper := getComponent(id)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
@@ -109,25 +104,54 @@ func GoEditControllerGetParameterInfo(componentPtr unsafe.Pointer, paramIndex C.
 	cInfo.unitId = C.Steinberg_Vst_UnitID(paramInfo.UnitID)
 	cInfo.flags = C.Steinberg_int32(paramInfo.Flags)
 	
+	// Debug: Print parameter info
+	// fmt.Printf("Parameter %d: StepCount=%d, Flags=%d, Name=%s\n", paramInfo.ID, paramInfo.StepCount, paramInfo.Flags, paramInfo.Title)
+	
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
 
 //export GoEditControllerGetParamStringByValue
 func GoEditControllerGetParamStringByValue(componentPtr unsafe.Pointer, id C.Steinberg_Vst_ParamID, valueNormalized C.Steinberg_Vst_ParamValue, string *C.Steinberg_Vst_TChar) C.Steinberg_tresult {
-	// TODO: Implement parameter string conversion
+	wrapper := getComponent(uintptr(componentPtr))
+	if wrapper == nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+	
+	// Get the formatted string
+	str, err := wrapper.component.GetParamStringByValue(uint32(id), float64(valueNormalized))
+	if err != nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+	
+	// Convert to UTF16 for VST3
+	copyStringToTChar(str, string, 128)
+	
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
 
 //export GoEditControllerGetParamValueByString
 func GoEditControllerGetParamValueByString(componentPtr unsafe.Pointer, id C.Steinberg_Vst_ParamID, string *C.Steinberg_Vst_TChar, valueNormalized *C.Steinberg_Vst_ParamValue) C.Steinberg_tresult {
-	// TODO: Implement parameter string conversion
-	return C.Steinberg_tresult(vst3.ResultFalse)
+	wrapper := getComponent(uintptr(componentPtr))
+	if wrapper == nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+	
+	// Convert from UTF16
+	str := stringFromTChar(string)
+	
+	// Parse the value
+	value, err := wrapper.component.GetParamValueByString(uint32(id), str)
+	if err != nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+	
+	*valueNormalized = C.Steinberg_Vst_ParamValue(value)
+	return C.Steinberg_tresult(vst3.ResultOK)
 }
 
 //export GoEditControllerNormalizedParamToPlain
 func GoEditControllerNormalizedParamToPlain(componentPtr unsafe.Pointer, id C.uint32_t, valueNormalized C.double) C.double {
-	idVal := uintptr(componentPtr)
-	wrapper := getComponent(idVal)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return valueNormalized
 	}
@@ -137,8 +161,7 @@ func GoEditControllerNormalizedParamToPlain(componentPtr unsafe.Pointer, id C.ui
 
 //export GoEditControllerPlainParamToNormalized
 func GoEditControllerPlainParamToNormalized(componentPtr unsafe.Pointer, id C.uint32_t, plainValue C.double) C.double {
-	idVal := uintptr(componentPtr)
-	wrapper := getComponent(idVal)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return plainValue
 	}
@@ -148,8 +171,7 @@ func GoEditControllerPlainParamToNormalized(componentPtr unsafe.Pointer, id C.ui
 
 //export GoEditControllerGetParamNormalized
 func GoEditControllerGetParamNormalized(componentPtr unsafe.Pointer, id C.uint32_t) C.double {
-	idVal := uintptr(componentPtr)
-	wrapper := getComponent(idVal)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return 0
 	}
@@ -159,8 +181,7 @@ func GoEditControllerGetParamNormalized(componentPtr unsafe.Pointer, id C.uint32
 
 //export GoEditControllerSetParamNormalized
 func GoEditControllerSetParamNormalized(componentPtr unsafe.Pointer, id C.uint32_t, value C.double) C.Steinberg_tresult {
-	idVal := uintptr(componentPtr)
-	wrapper := getComponent(idVal)
+	wrapper := getComponent(uintptr(componentPtr))
 	if wrapper == nil {
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}

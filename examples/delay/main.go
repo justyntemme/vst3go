@@ -63,16 +63,21 @@ func NewDelayProcessor() *DelayProcessor {
 			Range(0, 1000).
 			Default(250).
 			Unit("ms").
+			Formatter(param.TimeFormatter, param.TimeParser).
 			Build(),
 		
 		param.New(ParamFeedback, "Feedback").
-			Range(0, 0.95).
-			Default(0.3).
+			Range(0, 100).
+			Default(30).
+			Unit("%").
+			Formatter(param.PercentFormatter, param.PercentParser).
 			Build(),
 		
 		param.New(ParamMix, "Mix").
-			Range(0, 1).
-			Default(0.5).
+			Range(0, 100).
+			Default(50).
+			Unit("%").
+			Formatter(param.PercentFormatter, param.PercentParser).
 			Build(),
 	)
 	
@@ -96,8 +101,8 @@ func (p *DelayProcessor) Initialize(sampleRate float64, maxBlockSize int32) erro
 func (p *DelayProcessor) ProcessAudio(ctx *process.Context) {
 	// Get parameter values
 	delayTimeMs := ctx.ParamPlain(ParamDelayTime)
-	feedback := float32(ctx.Param(ParamFeedback))
-	mix := float32(ctx.Param(ParamMix))
+	feedback := float32(ctx.ParamPlain(ParamFeedback) / 100.0) // Convert from percentage
+	mix := float32(ctx.ParamPlain(ParamMix) / 100.0) // Convert from percentage
 	
 	// Convert delay time to samples
 	delaySamples := int(delayTimeMs * p.sampleRate / 1000.0)
