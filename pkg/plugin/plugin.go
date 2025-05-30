@@ -1,79 +1,42 @@
+// Package plugin provides the VST3 plugin framework
 package plugin
 
-// #cgo CFLAGS: -I../../include
-// #include "../../include/vst3/vst3_c_api.h"
-// #include <stdlib.h>
-// #include <string.h>
-import "C"
 import (
-	"unsafe"
+	"github.com/justyntemme/vst3go/pkg/framework/bus"
+	"github.com/justyntemme/vst3go/pkg/framework/param"
+	"github.com/justyntemme/vst3go/pkg/framework/plugin"
+	"github.com/justyntemme/vst3go/pkg/framework/process"
 )
 
-// Plugin interface that users will implement
+// Plugin is the main interface that users implement
 type Plugin interface {
-	GetPluginName() string
-	GetVendorName() string
-	GetPluginVersion() string
-	GetUID() [16]byte
-	CreateComponent() Component
-}
-
-// FactoryInfo provides information about the plugin factory
-type FactoryInfo struct {
-	Vendor string
-	URL    string
-	Email  string
-}
-
-// Global plugin instance (set by user)
-var globalPlugin Plugin
-var globalFactoryInfo = FactoryInfo{
-	Vendor: "VST3Go",
-	URL:    "https://github.com/vst3go",
-	Email:  "info@vst3go.com",
-}
-
-// RegisterPlugin sets the global plugin instance
-func RegisterPlugin(p Plugin) {
-	globalPlugin = p
-}
-
-// SetFactoryInfo allows customizing factory information
-func SetFactoryInfo(info FactoryInfo) {
-	globalFactoryInfo = info
-}
-
-//export GoGetFactoryInfo
-func GoGetFactoryInfo(vendor, url, email *C.char, flags *C.int32_t) {
-	C.strcpy(vendor, C.CString(globalFactoryInfo.Vendor))
-	C.strcpy(url, C.CString(globalFactoryInfo.URL))
-	C.strcpy(email, C.CString(globalFactoryInfo.Email))
-	*flags = C.Steinberg_PFactoryInfo_FactoryFlags_kUnicode
-}
-
-//export GoCountClasses
-func GoCountClasses() C.int32_t {
-	if globalPlugin == nil {
-		return 0
-	}
-	return 1
-}
-
-//export GoGetClassInfo
-func GoGetClassInfo(index C.int32_t, cid *C.char, cardinality *C.int32_t, category, name *C.char) {
-	if globalPlugin == nil || index != 0 {
-		return
-	}
+	// GetInfo returns plugin metadata
+	GetInfo() plugin.Info
 	
-	// Copy UID
-	uid := globalPlugin.GetUID()
-	C.memcpy(unsafe.Pointer(cid), unsafe.Pointer(&uid[0]), 16)
-	
-	// Set cardinality
-	*cardinality = C.Steinberg_PClassInfo_ClassCardinality_kManyInstances
-	
-	// Set category and name
-	C.strcpy(category, C.CString("Audio Module Class"))
-	C.strcpy(name, C.CString(globalPlugin.GetPluginName()))
+	// CreateProcessor creates a new instance of the audio processor
+	CreateProcessor() Processor
 }
 
+// Processor handles the actual audio processing
+type Processor interface {
+	// Initialize is called when the plugin is created
+	Initialize(sampleRate float64, maxBlockSize int32) error
+	
+	// ProcessAudio processes audio - ZERO ALLOCATIONS!
+	ProcessAudio(ctx *process.Context)
+	
+	// GetParameters returns the parameter registry
+	GetParameters() *param.Registry
+	
+	// GetBuses returns the bus configuration
+	GetBuses() *bus.Configuration
+	
+	// SetActive is called when processing starts/stops
+	SetActive(active bool) error
+	
+	// GetLatencySamples returns the plugin's latency in samples
+	GetLatencySamples() int32
+	
+	// GetTailSamples returns the tail length in samples
+	GetTailSamples() int32
+}

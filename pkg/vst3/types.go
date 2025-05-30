@@ -6,6 +6,7 @@ import "unsafe"
 
 // Result codes - we need to define these as values, not C constants
 const (
+	ResultOK    = 0
 	ResultOk    = 0
 	ResultFalse = 1
 	ResultTrue  = 0 // Same as Ok
@@ -44,6 +45,7 @@ type Error int
 
 const (
 	ErrNotImplemented Error = -1
+	ErrInvalidArgument Error = -2
 )
 
 func (e Error) Error() string {

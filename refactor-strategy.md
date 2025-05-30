@@ -1,5 +1,13 @@
 # VST3Go Refactor Strategy
 
+## Core Development Principles
+
+### No Backwards Compatibility - Move Fast, Break Things
+- **This is a POC/MVP** - We're building towards 1.0, not maintaining legacy code
+- **Delete old code immediately** - No backups, no deprecation warnings, no migration paths
+- **Make breaking changes freely** - If something needs to change, change it
+- **Keep old code only when actively migrating** - And delete it as soon as the migration is complete
+
 ## Executive Summary
 
 This document outlines a comprehensive refactoring strategy to align the VST3Go codebase with the architectural principles defined in `guardrails.md`. The goal is to transform the current implementation into a layered, Go-idiomatic framework that makes VST3 plugin development fast, enjoyable, and powerful while maintaining a minimal C bridge layer.

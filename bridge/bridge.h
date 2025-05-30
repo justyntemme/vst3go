@@ -9,6 +9,6 @@
 extern void GoGetFactoryInfo(char* vendor, char* url, char* email, int32_t* flags);
 extern int32_t GoCountClasses();
 extern void GoGetClassInfo(int32_t index, char* cid, int32_t* cardinality, char* category, char* name);
-extern void* GoCreateInstance(const char* cid, const char* iid);
+extern void* GoCreateInstance(char* cid, char* iid);
 
 #endif // VST3GO_BRIDGE_H
