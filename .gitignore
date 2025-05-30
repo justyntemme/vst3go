@@ -23,3 +23,63 @@ go.work.sum
 
 # env file
 .env
+
+# VST3Go specific build artifacts
+build/
+*.vst3/
+*.vst3
+
+# CGO generated files
+*_cgo_export.h
+*_cgo_export.c
+*_cgo_gotypes.go
+*_cgo.go
+
+# But keep our bridge headers
+!bridge/*.h
+!include/**/*.h
+
+# Platform-specific VST3 bundles
+*.vst3/Contents/
+*.component/
+*.aaxplugin/
+
+# Debug files
+*.pdb
+*.dSYM/
+*.debug
+
+# Validator test results
+test_results.txt
+validation_*.log
+debug.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Archive directory (for deprecated docs)
+docs/archive/
+
+# Generated documentation
+docs/_build/
+docs/html/
+
+# Performance profiling
+*.prof
+*.pprof
+*.trace
+
+# Memory dumps
+*.dump
+core
+core.*
