@@ -384,7 +384,7 @@ make install  # Uses ~/.vst3 on Linux, appropriate dirs on Windows/macOS
   - Guidelines for host/plugin communication
 - [VST3 C API Header](./include/vst3/vst3_c_api.h)
 - [Example Plugins](./examples/)
-- [Architecture Guide](./docs/architecture.md) (TODO)
+- [Architecture Guide](./docs/architecture.md)
 
 ## Success Metrics
 

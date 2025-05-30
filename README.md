@@ -102,9 +102,12 @@ func (p *MyProcessor) ProcessAudio(ctx *process.Context) {
 }
 ```
 
-## Development Status
+## Documentation
 
-See [TODO.md](TODO.md) for the complete development strategy and roadmap.
+- **[Architecture Guide](docs/architecture.md)** - Comprehensive overview of the framework design
+- **[Getting Started](docs/getting-started.md)** - Step-by-step tutorial for your first plugin
+- **[API Documentation](docs/)** - Detailed documentation for each component
+- **[Development Roadmap](TODO.md)** - Current status and future plans
 
 ### Working
 - ✅ Basic plugin framework
