@@ -52,15 +52,45 @@ All examples build successfully and pass VST3 validation tests.
 
 **Goal**: Provide comprehensive DSP building blocks for plugin developers
 
-1. **Dynamics Processing**
-   ```go
-   // pkg/dsp/dynamics/
-   - Compressor with lookahead
-   - Limiter with true peak detection
-   - Gate with hysteresis
-   - Expander
-   - Envelope detector with multiple modes
-   ```
+#### Current Task Breakdown:
+
+**1.1 Envelope Detector** ✅ DONE
+- [x] Basic envelope follower (already exists)
+- [x] Peak detector mode
+- [x] RMS detector mode  
+- [x] Peak hold mode with configurable hold time
+- [x] Add attack/release time constants
+- [x] Add detection modes (linear/logarithmic/analog)
+- [x] Side-chain processing support
+- [x] dB output conversion
+
+**1.2 Dynamics - Compressor** ✅ DONE
+- [x] Basic feed-forward compressor
+- [x] Ratio, threshold, attack, release controls
+- [x] Knee control (hard/soft with adjustable width)
+- [x] Makeup gain
+- [x] Lookahead buffer (up to 10ms)
+- [x] Stereo-linked processing
+- [x] Sidechain compression support
+- [x] Gain reduction metering
+
+**1.3 Dynamics - Limiter** ✅ DONE
+- [x] Brick-wall limiter
+- [x] True peak detection
+- [x] Release control
+- [x] Lookahead for transparent limiting
+
+**1.4 Dynamics - Gate** ✅ DONE
+- [x] Basic noise gate
+- [x] Threshold with hysteresis
+- [x] Attack/hold/release envelope
+- [x] Range control
+- [x] Side-chain filter
+
+**1.5 Dynamics - Expander** 🔜
+- [ ] Downward expander
+- [ ] Ratio and threshold controls
+- [ ] Smooth envelope following
 
 2. **Modulation Effects**
    ```go
@@ -202,9 +232,11 @@ All examples build successfully and pass VST3 validation tests.
    - Performance benchmarking
    ```
 
-### Phase 5: Cross-Platform Support 🔜
+### Phase 5: Cross-Platform Support 🔒 DEFERRED
 
 **Goal**: True cross-platform deployment
+
+**Status**: Deferred until further notice. Focus on Linux platform initially.
 
 1. **Platform Abstraction**
    ```go
@@ -345,7 +377,7 @@ func (s *SimpleSynth) ProcessAudio(ctx *process.Context) {
 - ✅ Zero allocations in audio path
 - ✅ < 200 lines for basic effects
 - ✅ Follows architectural guardrails
-- ✅ Cross-platform support (Linux, Windows, macOS)
+- 🔒 Cross-platform support (Linux only for now, others deferred)
 - ✅ Parameter automation working
 - ✅ State persistence working
 - 🚧 Comprehensive DSP library
@@ -355,11 +387,15 @@ func (s *SimpleSynth) ProcessAudio(ctx *process.Context) {
 - 📅 15+ example plugins
 - 📅 Simple synthesizer example
 
+### GUI Support 🔒 DEFERRED
+
+**Status**: GUI implementation (IPlugView) is deferred until manually approved. The framework will remain audio-only until further notice.
+
 ### Post v1.0 Goals
 - Performance competitive with C++
 - Active community
 - Plugin marketplace
-- Visual plugin builder
+- Visual plugin builder (requires GUI support)
 - AI-assisted DSP development
 
 ## Resources
