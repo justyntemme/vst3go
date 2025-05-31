@@ -44,18 +44,30 @@ All examples build successfully and pass VST3 validation tests.
 
 ## Immediate Priorities
 
-### 1. Parameter Automation from Host 🔜
-Currently parameters can be set but changes from the host aren't processed.
+### 1. Parameter Automation from Host ✅ DONE
+Parameter changes from the host are now processed correctly.
+
+### 2. Parameter Value Strings ✅ DONE  
+Parameter formatting and parsing is implemented with custom formatters.
+
+### 3. Component Handler for Parameter Change Notifications 🔜
+Store component handler to notify host of parameter changes from plugin.
 
 ```go
-// TODO in pkg/plugin/component.go
-func (w *componentWrapper) process(data *C.struct_Steinberg_Vst_ProcessData) C.Steinberg_tresult {
-    // TODO: Process parameter changes from data.inputParameterChanges
-    // This needs to read the parameter change queue and apply changes
-}
+// TODO in pkg/plugin/wrapper_controller.go:184
+// Store component handler for parameter change notifications
 ```
 
-### 2. State Save/Load Implementation 🔜
+### 4. Sample-Accurate Parameter Automation 🔜
+Improve parameter automation precision for sub-buffer parameter changes.
+
+```go
+// TODO in pkg/framework/process/context.go:108  
+// For true sample-accurate automation, we would need to process
+// parameter changes at sample boundaries within the buffer
+```
+
+### 5. State Save/Load Implementation 🔜
 Framework structure exists but implementation is incomplete.
 
 ```go
@@ -65,7 +77,7 @@ Framework structure exists but implementation is incomplete.
 - Stream wrapper for IBStream
 ```
 
-### 3. Process Context Support 🔜
+### 6. Process Context Support 🔜
 Musical time, tempo, and transport information.
 
 ```go
@@ -75,16 +87,6 @@ Musical time, tempo, and transport information.
 - Transport state (playing/stopped)
 - Sample position
 - Musical position
-```
-
-### 4. Parameter Value Strings 🔜
-Allow parameters to display formatted values.
-
-```go
-// Add to parameter system:
-- Value to string conversion
-- String to value parsing
-- Custom formatting (e.g., "440 Hz", "-6.0 dB")
 ```
 
 
@@ -199,7 +201,8 @@ Allow parameters to display formatted values.
 - ✅ Basic stereo I/O
 - ✅ Parameter definition and storage
 - ✅ Thread-safe parameter access
-- 🚧 Parameter changes from host
+- ✅ Parameter changes from host
+- ✅ Parameter value formatting and parsing
 - 🚧 State save/load
 - ❌ 64-bit double processing
 - ❌ Multi-bus support
@@ -394,7 +397,7 @@ make install  # Uses ~/.vst3 on Linux, appropriate dirs on Windows/macOS
 - ✅ < 200 lines for basic effects
 - ✅ Follows architectural guardrails
 - ✅ Cross-platform support (Linux, Windows, macOS)
-- 🚧 Parameter automation working
+- ✅ Parameter automation working
 - 🚧 State persistence working
 - 🚧 Used in production by at least one user
 - 📅 Documentation complete
