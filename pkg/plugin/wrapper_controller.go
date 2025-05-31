@@ -181,7 +181,16 @@ func GoEditControllerSetParamNormalized(componentPtr unsafe.Pointer, id C.uint32
 
 //export GoEditControllerSetComponentHandler
 func GoEditControllerSetComponentHandler(componentPtr unsafe.Pointer, handler unsafe.Pointer) C.Steinberg_tresult {
-	// TODO: Store component handler for parameter change notifications
+	wrapper := getComponent(uintptr(componentPtr))
+	if wrapper == nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+
+	// Store the component handler for parameter change notifications
+	wrapper.handlerMu.Lock()
+	wrapper.componentHandler = handler
+	wrapper.handlerMu.Unlock()
+
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
 

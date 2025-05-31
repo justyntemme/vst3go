@@ -2,6 +2,8 @@
 package plugin
 
 import (
+	"io"
+
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
@@ -39,4 +41,19 @@ type Processor interface {
 
 	// GetTailSamples returns the tail length in samples
 	GetTailSamples() int32
+}
+
+// StatefulProcessor extends Processor with custom state save/load capabilities
+// Processors can optionally implement this interface to save custom state
+// beyond parameter values (e.g., delay buffer contents, filter states)
+type StatefulProcessor interface {
+	Processor
+
+	// SaveCustomState saves additional state beyond parameters
+	// This is called after all parameters have been saved
+	SaveCustomState(w io.Writer) error
+
+	// LoadCustomState loads additional state beyond parameters
+	// This is called after all parameters have been loaded
+	LoadCustomState(r io.Reader) error
 }

@@ -25,6 +25,7 @@ type componentImpl struct {
 	active       bool
 	processing   bool
 	mu           sync.RWMutex
+	wrapper      *componentWrapper // Reference to wrapper for notifications
 }
 
 // newComponent creates a new component implementation
@@ -109,8 +110,14 @@ func (c *componentImpl) SetState(stateData []byte) error {
 		return fmt.Errorf("no parameters available")
 	}
 
-	// Create state manager and load state
+	// Create state manager and configure custom state handling
 	stateManager := state.NewManager(params)
+
+	// Check if processor implements StatefulProcessor
+	if stateful, ok := c.processor.(StatefulProcessor); ok {
+		stateManager.SetCustomLoadFunc(stateful.LoadCustomState)
+	}
+
 	buf := bytes.NewReader(stateData)
 	return stateManager.Load(buf)
 }
@@ -126,8 +133,14 @@ func (c *componentImpl) GetState() ([]byte, error) {
 		return nil, fmt.Errorf("no parameters available")
 	}
 
-	// Create state manager and save state
+	// Create state manager and configure custom state handling
 	stateManager := state.NewManager(params)
+
+	// Check if processor implements StatefulProcessor
+	if stateful, ok := c.processor.(StatefulProcessor); ok {
+		stateManager.SetCustomSaveFunc(stateful.SaveCustomState)
+	}
+
 	var buf bytes.Buffer
 	if err := stateManager.Save(&buf); err != nil {
 		return nil, err
@@ -195,6 +208,58 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 	// Update context with current buffers
 	c.processCtx.SampleRate = c.sampleRate
 
+	// Update transport information if available
+	if processData.processContext != nil {
+		ctx := processData.processContext
+		transport := c.processCtx.Transport
+
+		// Transport state
+		transport.IsPlaying = (ctx.state & C.Steinberg_Vst_ProcessContext_StatesAndFlags_kPlaying) != 0
+		transport.IsRecording = (ctx.state & C.Steinberg_Vst_ProcessContext_StatesAndFlags_kRecording) != 0
+		transport.IsCycling = (ctx.state & C.Steinberg_Vst_ProcessContext_StatesAndFlags_kCycleActive) != 0
+
+		// Tempo
+		transport.HasTempo = (ctx.state & C.Steinberg_Vst_ProcessContext_StatesAndFlags_kTempoValid) != 0
+		if transport.HasTempo {
+			transport.Tempo = float64(ctx.tempo)
+		}
+
+		// Time signature
+		transport.HasTimeSignature = (ctx.state & C.Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid) != 0
+		if transport.HasTimeSignature {
+			transport.TimeSigNumerator = int32(ctx.timeSigNumerator)
+			transport.TimeSigDenominator = int32(ctx.timeSigDenominator)
+		}
+
+		// Musical time
+		transport.HasMusicalTime = (ctx.state & C.Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid) != 0
+		if transport.HasMusicalTime {
+			transport.ProjectTimeMusic = float64(ctx.projectTimeMusic)
+		}
+
+		// Bar position
+		transport.HasBarPosition = (ctx.state & C.Steinberg_Vst_ProcessContext_StatesAndFlags_kBarPositionValid) != 0
+		if transport.HasBarPosition {
+			transport.BarPositionMusic = float64(ctx.barPositionMusic)
+		}
+
+		// Cycle points
+		transport.HasCycle = (ctx.state & C.Steinberg_Vst_ProcessContext_StatesAndFlags_kCycleValid) != 0
+		if transport.HasCycle {
+			transport.CycleStartMusic = float64(ctx.cycleStartMusic)
+			transport.CycleEndMusic = float64(ctx.cycleEndMusic)
+		}
+
+		// Sample positions
+		transport.ProjectTimeSamples = int64(ctx.projectTimeSamples)
+		transport.ContinuousTimeSamples = int64(ctx.continousTimeSamples)
+
+		// Clock
+		if (ctx.state & C.Steinberg_Vst_ProcessContext_StatesAndFlags_kClockValid) != 0 {
+			transport.SamplesToNextClock = int32(ctx.samplesToNextClock)
+		}
+	}
+
 	// Set input/output buffers (slicing pre-allocated arrays, no allocation)
 	numSamples := int(processData.numSamples)
 
@@ -238,7 +303,10 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 		}
 	}
 
-	// Process parameter changes using C helper functions for sample-accurate automation
+	// Reset parameter changes for this processing block
+	c.processCtx.ResetParameterChanges()
+
+	// Collect parameter changes for sample-accurate automation
 	if processData.inputParameterChanges != nil {
 		// Get parameter count using C helper function
 		paramCount := C.getParameterChangeCount(unsafe.Pointer(processData.inputParameterChanges))
@@ -261,16 +329,25 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 					// Get the automation point
 					result := C.getPoint(paramQueue, j, &sampleOffset, &value)
 					if result == 0 { // kResultOk
-						// Apply parameter change at specific sample offset
-						c.processCtx.SetParameterAtOffset(uint32(paramID), float64(value), int(sampleOffset))
+						// Add parameter change for sample-accurate processing
+						c.processCtx.AddParameterChange(uint32(paramID), float64(value), int(sampleOffset))
 					}
 				}
 			}
 		}
 	}
 
-	// Call processor with context
-	c.processor.ProcessAudio(c.processCtx)
+	// Process audio with sample-accurate parameter automation
+	if c.processCtx.HasParameterChanges() {
+		// Sort parameter changes by sample offset
+		c.processCtx.SortParameterChanges()
+
+		// Process audio in chunks between parameter changes
+		c.processSampleAccurate()
+	} else {
+		// No parameter changes - process entire block
+		c.processor.ProcessAudio(c.processCtx)
+	}
 
 	return nil
 }
@@ -348,8 +425,8 @@ func (c *componentImpl) GetParamNormalized(id uint32) float64 {
 func (c *componentImpl) SetParamNormalized(id uint32, value float64) error {
 	if p := c.processor.GetParameters().Get(id); p != nil {
 		// Debug parameter changes
-		fmt.Printf("[PARAM_CHANGE] SetParamNormalized: id=%d, value=%.3f, plain=%.1f\n", 
-			id, value, p.Min + value*(p.Max-p.Min))
+		fmt.Printf("[PARAM_CHANGE] SetParamNormalized: id=%d, value=%.3f, plain=%.1f\n",
+			id, value, p.Min+value*(p.Max-p.Min))
 		p.SetValue(value)
 		return nil
 	}
@@ -362,4 +439,110 @@ func (c *componentImpl) SetComponentHandler(handler interface{}) error {
 
 func (c *componentImpl) CreateView(name string) (interface{}, error) {
 	return nil, vst3.ErrNotImplemented
+}
+
+// SetParamNormalizedWithNotification sets a parameter value and notifies the host
+// This should be used when the plugin changes a parameter value internally
+func (c *componentImpl) SetParamNormalizedWithNotification(id uint32, value float64) error {
+	if p := c.processor.GetParameters().Get(id); p != nil {
+		// Notify host of parameter change
+		if c.wrapper != nil {
+			c.wrapper.notifyParamBeginEdit(id)
+			p.SetValue(value)
+			c.wrapper.notifyParamPerformEdit(id, value)
+			c.wrapper.notifyParamEndEdit(id)
+		} else {
+			// Fallback if no wrapper available
+			p.SetValue(value)
+		}
+		return nil
+	}
+	return vst3.ErrInvalidArgument
+}
+
+// processSampleAccurate processes audio with sample-accurate parameter automation
+func (c *componentImpl) processSampleAccurate() {
+	changes := c.processCtx.GetParameterChanges()
+	numSamples := c.processCtx.NumSamples()
+	lastOffset := 0
+
+	// Store original buffers
+	origInput := c.processCtx.Input
+	origOutput := c.processCtx.Output
+
+	// Process each chunk between parameter changes
+	for _, change := range changes {
+		if change.SampleOffset > lastOffset {
+			// Process chunk from lastOffset to change.SampleOffset
+			chunkSize := change.SampleOffset - lastOffset
+
+			// Temporarily update context buffers to point to sub-slices (no allocation)
+			c.processCtx.Input = nil
+			c.processCtx.Output = nil
+
+			// Set up input sub-slices
+			for ch := 0; ch < len(origInput); ch++ {
+				if lastOffset < len(origInput[ch]) {
+					endOffset := lastOffset + chunkSize
+					if endOffset > len(origInput[ch]) {
+						endOffset = len(origInput[ch])
+					}
+					c.processCtx.Input = append(c.processCtx.Input, origInput[ch][lastOffset:endOffset])
+				}
+			}
+
+			// Set up output sub-slices
+			for ch := 0; ch < len(origOutput); ch++ {
+				if lastOffset < len(origOutput[ch]) {
+					endOffset := lastOffset + chunkSize
+					if endOffset > len(origOutput[ch]) {
+						endOffset = len(origOutput[ch])
+					}
+					c.processCtx.Output = append(c.processCtx.Output, origOutput[ch][lastOffset:endOffset])
+				}
+			}
+
+			// Process this chunk
+			c.processor.ProcessAudio(c.processCtx)
+
+			lastOffset = change.SampleOffset
+		}
+
+		// Apply the parameter change
+		c.processCtx.ApplyParameterChange(change)
+
+		// Debug output
+		if p := c.processor.GetParameters().Get(change.ParamID); p != nil {
+			fmt.Printf("[SAMPLE_ACCURATE] Applied param %d change at sample %d: value=%.6f, plain=%.1f\n",
+				change.ParamID, change.SampleOffset, change.Value, p.GetPlainValue())
+		}
+	}
+
+	// Process final chunk if there are samples remaining
+	if lastOffset < numSamples {
+		// Temporarily update context buffers for final chunk
+		c.processCtx.Input = nil
+		c.processCtx.Output = nil
+
+		// Set up input sub-slices for final chunk
+		for ch := 0; ch < len(origInput); ch++ {
+			if lastOffset < len(origInput[ch]) {
+				c.processCtx.Input = append(c.processCtx.Input, origInput[ch][lastOffset:])
+			}
+		}
+
+		// Set up output sub-slices for final chunk
+		for ch := 0; ch < len(origOutput); ch++ {
+			if lastOffset < len(origOutput[ch]) {
+				c.processCtx.Output = append(c.processCtx.Output, origOutput[ch][lastOffset:])
+			}
+		}
+
+		// Process final chunk
+		c.processor.ProcessAudio(c.processCtx)
+	}
+
+	// Restore original buffers
+	c.processCtx.Input = origInput
+	c.processCtx.Output = origOutput
 }

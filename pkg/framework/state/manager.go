@@ -16,13 +16,17 @@ const (
 
 // Manager handles plugin state saving and loading
 type Manager struct {
-	version  uint32
-	registry *param.Registry
-	custom   CustomStateFunc
+	version    uint32
+	registry   *param.Registry
+	customSave CustomSaveFunc
+	customLoad CustomLoadFunc
 }
 
-// CustomStateFunc allows plugins to save additional state beyond parameters
-type CustomStateFunc func(w io.Writer) error
+// CustomSaveFunc allows plugins to save additional state beyond parameters
+type CustomSaveFunc func(w io.Writer) error
+
+// CustomLoadFunc allows plugins to load additional state beyond parameters
+type CustomLoadFunc func(r io.Reader) error
 
 // NewManager creates a new state manager
 func NewManager(registry *param.Registry) *Manager {
@@ -32,9 +36,14 @@ func NewManager(registry *param.Registry) *Manager {
 	}
 }
 
-// SetCustomStateFunc sets a function for saving custom state
-func (m *Manager) SetCustomStateFunc(fn CustomStateFunc) {
-	m.custom = fn
+// SetCustomSaveFunc sets a function for saving custom state
+func (m *Manager) SetCustomSaveFunc(fn CustomSaveFunc) {
+	m.customSave = fn
+}
+
+// SetCustomLoadFunc sets a function for loading custom state
+func (m *Manager) SetCustomLoadFunc(fn CustomLoadFunc) {
+	m.customLoad = fn
 }
 
 // Save writes the plugin state to a writer
@@ -70,13 +79,13 @@ func (m *Manager) Save(w io.Writer) error {
 	}
 
 	// Write custom state if provided
-	if m.custom != nil {
+	if m.customSave != nil {
 		// Mark that custom data follows
 		if err := binary.Write(w, binary.LittleEndian, uint32(1)); err != nil {
 			return err
 		}
 
-		return m.custom(w)
+		return m.customSave(w)
 	}
 	// No custom data
 	return binary.Write(w, binary.LittleEndian, uint32(0))
@@ -135,10 +144,13 @@ func (m *Manager) Load(r io.Reader) error {
 		return err
 	}
 
-	if hasCustom != 0 && m.custom != nil {
-		// Custom load function should be set by the plugin
-		// For now, skip custom data
-		return fmt.Errorf("custom state loading not implemented")
+	if hasCustom != 0 {
+		if m.customLoad != nil {
+			return m.customLoad(r)
+		}
+		// Skip custom data if no load function is provided
+		// This allows forward compatibility with states that have custom data
+		// but the plugin doesn't handle it anymore
 	}
 
 	return nil

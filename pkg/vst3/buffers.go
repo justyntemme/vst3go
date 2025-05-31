@@ -69,13 +69,40 @@ func (b *AudioBuffer) NumSamples() int32 {
 	return b.numSamples
 }
 
-// ProcessContext wraps the VST3 process context
+// ProcessContextFlags defines which fields in ProcessContext are valid
+type ProcessContextFlags uint32
+
+const (
+	ProcessContextFlagPlaying          ProcessContextFlags = 1 << 1
+	ProcessContextFlagCycleActive      ProcessContextFlags = 1 << 2
+	ProcessContextFlagRecording        ProcessContextFlags = 1 << 3
+	ProcessContextFlagSystemTimeValid  ProcessContextFlags = 1 << 8
+	ProcessContextFlagContTimeValid    ProcessContextFlags = 1 << 17
+	ProcessContextFlagProjectTimeValid ProcessContextFlags = 1 << 9
+	ProcessContextFlagBarPositionValid ProcessContextFlags = 1 << 11
+	ProcessContextFlagCycleValid       ProcessContextFlags = 1 << 12
+	ProcessContextFlagTempoValid       ProcessContextFlags = 1 << 10
+	ProcessContextFlagTimeSigValid     ProcessContextFlags = 1 << 13
+	ProcessContextFlagChordValid       ProcessContextFlags = 1 << 18
+	ProcessContextFlagSmpteValid       ProcessContextFlags = 1 << 14
+	ProcessContextFlagClockValid       ProcessContextFlags = 1 << 15
+)
+
+// ProcessContext wraps the VST3 process context with all transport and timing information
 type ProcessContext struct {
-	State           uint32
-	SampleRate      float64
-	ProjectTimeSecs float64
-	BarPositionPPQ  float64
-	Tempo           float64
+	State                 ProcessContextFlags // Flags indicating which fields are valid
+	SampleRate            float64             // Current sample rate
+	ProjectTimeSamples    int64               // Project time in samples
+	SystemTime            int64               // System time in nanoseconds
+	ContinuousTimeSamples int64               // Continuous time in samples
+	ProjectTimeMusic      float64             // Musical position in quarter notes
+	BarPositionMusic      float64             // Bar position in quarter notes
+	CycleStartMusic       float64             // Cycle/loop start in quarter notes
+	CycleEndMusic         float64             // Cycle/loop end in quarter notes
+	Tempo                 float64             // Current tempo in BPM
+	TimeSigNumerator      int32               // Time signature numerator (e.g., 4 for 4/4)
+	TimeSigDenominator    int32               // Time signature denominator (e.g., 4 for 4/4)
+	SamplesToNextClock    int32               // Samples to next clock/beat
 }
 
 // NewProcessContext creates a process context from C struct
@@ -85,12 +112,55 @@ func NewProcessContext(ctx *C.struct_Steinberg_Vst_ProcessContext) *ProcessConte
 	}
 
 	return &ProcessContext{
-		State:           uint32(ctx.state),
-		SampleRate:      float64(ctx.sampleRate),
-		ProjectTimeSecs: float64(ctx.projectTimeMusic),
-		BarPositionPPQ:  float64(ctx.barPositionMusic),
-		Tempo:           float64(ctx.tempo),
+		State:                 ProcessContextFlags(ctx.state),
+		SampleRate:            float64(ctx.sampleRate),
+		ProjectTimeSamples:    int64(ctx.projectTimeSamples),
+		SystemTime:            int64(ctx.systemTime),
+		ContinuousTimeSamples: int64(ctx.continousTimeSamples),
+		ProjectTimeMusic:      float64(ctx.projectTimeMusic),
+		BarPositionMusic:      float64(ctx.barPositionMusic),
+		CycleStartMusic:       float64(ctx.cycleStartMusic),
+		CycleEndMusic:         float64(ctx.cycleEndMusic),
+		Tempo:                 float64(ctx.tempo),
+		TimeSigNumerator:      int32(ctx.timeSigNumerator),
+		TimeSigDenominator:    int32(ctx.timeSigDenominator),
+		SamplesToNextClock:    int32(ctx.samplesToNextClock),
 	}
+}
+
+// IsPlaying returns true if transport is playing
+func (c *ProcessContext) IsPlaying() bool {
+	return c.State&ProcessContextFlagPlaying != 0
+}
+
+// IsRecording returns true if transport is recording
+func (c *ProcessContext) IsRecording() bool {
+	return c.State&ProcessContextFlagRecording != 0
+}
+
+// IsCycleActive returns true if loop/cycle is active
+func (c *ProcessContext) IsCycleActive() bool {
+	return c.State&ProcessContextFlagCycleActive != 0
+}
+
+// HasTempo returns true if tempo information is valid
+func (c *ProcessContext) HasTempo() bool {
+	return c.State&ProcessContextFlagTempoValid != 0
+}
+
+// HasTimeSignature returns true if time signature information is valid
+func (c *ProcessContext) HasTimeSignature() bool {
+	return c.State&ProcessContextFlagTimeSigValid != 0
+}
+
+// HasBarPosition returns true if bar position information is valid
+func (c *ProcessContext) HasBarPosition() bool {
+	return c.State&ProcessContextFlagBarPositionValid != 0
+}
+
+// HasProjectTimeMusic returns true if musical time position is valid
+func (c *ProcessContext) HasProjectTimeMusic() bool {
+	return c.State&ProcessContextFlagProjectTimeValid != 0
 }
 
 // ProcessDataWrapper provides safe access to VST3 process data

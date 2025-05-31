@@ -6,6 +6,28 @@ package plugin
 // #include "../../bridge/component.h"
 // #include <stdlib.h>
 // #include <string.h>
+//
+// // Helper functions to call IComponentHandler methods
+// static inline Steinberg_tresult componentHandler_beginEdit(struct Steinberg_Vst_IComponentHandler* handler, Steinberg_Vst_ParamID id) {
+//     if (handler && handler->lpVtbl && handler->lpVtbl->beginEdit) {
+//         return handler->lpVtbl->beginEdit(handler, id);
+//     }
+//     return Steinberg_kResultFalse;
+// }
+//
+// static inline Steinberg_tresult componentHandler_performEdit(struct Steinberg_Vst_IComponentHandler* handler, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue value) {
+//     if (handler && handler->lpVtbl && handler->lpVtbl->performEdit) {
+//         return handler->lpVtbl->performEdit(handler, id, value);
+//     }
+//     return Steinberg_kResultFalse;
+// }
+//
+// static inline Steinberg_tresult componentHandler_endEdit(struct Steinberg_Vst_IComponentHandler* handler, Steinberg_Vst_ParamID id) {
+//     if (handler && handler->lpVtbl && handler->lpVtbl->endEdit) {
+//         return handler->lpVtbl->endEdit(handler, id);
+//     }
+//     return Steinberg_kResultFalse;
+// }
 import "C"
 import (
 	"sync"
@@ -23,9 +45,11 @@ type Component interface {
 
 // componentWrapper wraps a Go component for C callbacks
 type componentWrapper struct {
-	component Component
-	handle    unsafe.Pointer
-	id        uintptr
+	component        Component
+	handle           unsafe.Pointer
+	id               uintptr
+	componentHandler unsafe.Pointer // IComponentHandler from host
+	handlerMu        sync.RWMutex   // Protects componentHandler access
 }
 
 var (
@@ -104,6 +128,48 @@ func getComponent(id uintptr) *componentWrapper {
 	return wrapper
 }
 
+// notifyParamBeginEdit notifies the host that parameter editing is beginning
+func (w *componentWrapper) notifyParamBeginEdit(paramID uint32) {
+	w.handlerMu.RLock()
+	handler := w.componentHandler
+	w.handlerMu.RUnlock()
+
+	if handler == nil {
+		return
+	}
+
+	// Call beginEdit through helper function
+	C.componentHandler_beginEdit((*C.Steinberg_Vst_IComponentHandler)(handler), C.Steinberg_Vst_ParamID(paramID))
+}
+
+// notifyParamPerformEdit notifies the host of a parameter value change
+func (w *componentWrapper) notifyParamPerformEdit(paramID uint32, valueNormalized float64) {
+	w.handlerMu.RLock()
+	handler := w.componentHandler
+	w.handlerMu.RUnlock()
+
+	if handler == nil {
+		return
+	}
+
+	// Call performEdit through helper function
+	C.componentHandler_performEdit((*C.Steinberg_Vst_IComponentHandler)(handler), C.Steinberg_Vst_ParamID(paramID), C.Steinberg_Vst_ParamValue(valueNormalized))
+}
+
+// notifyParamEndEdit notifies the host that parameter editing has ended
+func (w *componentWrapper) notifyParamEndEdit(paramID uint32) {
+	w.handlerMu.RLock()
+	handler := w.componentHandler
+	w.handlerMu.RUnlock()
+
+	if handler == nil {
+		return
+	}
+
+	// Call endEdit through helper function
+	C.componentHandler_endEdit((*C.Steinberg_Vst_IComponentHandler)(handler), C.Steinberg_Vst_ParamID(paramID))
+}
+
 //export GoGetFactoryInfo
 func GoGetFactoryInfo(vendor, url, email *C.char, flags *C.int32_t) {
 	C.strcpy(vendor, C.CString(globalFactoryInfo.Vendor))
@@ -169,6 +235,9 @@ func GoCreateInstance(cid *C.char, iid *C.char) unsafe.Pointer {
 	wrapper := &componentWrapper{
 		component: component,
 	}
+
+	// Set wrapper reference in component for notifications
+	component.wrapper = wrapper
 
 	// Register and get ID
 	id := registerComponent(wrapper)
