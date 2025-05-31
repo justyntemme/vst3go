@@ -1,4 +1,4 @@
-# VST3Go - Unified Development Strategy
+# VST3Go - Development Roadmap
 
 ## Project Overview
 
@@ -20,13 +20,17 @@ VST3Go provides a Go framework for building VST3 audio plugins. We follow a "mov
 - Rich Go framework with clean separation of concerns
 - Zero-allocation audio processing with pre-allocated buffers
 - Thread-safe parameter system using atomic operations
+- Component handler for parameter change notifications
+- Sample-accurate parameter automation
+- Complete state persistence with custom data support
+- Full transport and tempo synchronization
 
 **Framework Packages**
 - `pkg/framework/plugin` - Plugin metadata and interfaces
 - `pkg/framework/param` - Parameter management with fluent builder API
-- `pkg/framework/process` - Audio processing context
+- `pkg/framework/process` - Audio processing context with transport info
 - `pkg/framework/bus` - Bus configuration management
-- `pkg/framework/state` - State persistence (structure in place)
+- `pkg/framework/state` - State persistence with custom data support
 
 **DSP Packages**
 - `pkg/dsp/buffer` - Common buffer operations
@@ -36,455 +40,273 @@ VST3Go provides a Go framework for building VST3 audio plugins. We follow a "mov
 - `pkg/dsp/delay` - Various delay line implementations
 
 **Working Examples**
-- **SimpleGain** - Basic gain control (115 lines, down from 147)
+- **SimpleGain** - Basic gain control
 - **SimpleDelay** - Delay effect with feedback
 - **MultiModeFilter** - State variable filter with morphing
 
 All examples build successfully and pass VST3 validation tests.
 
-## Immediate Priorities
+## Development Priorities
 
-### 1. Parameter Automation from Host ✅ DONE
-Parameter changes from the host are now processed correctly.
+### Phase 1: DSP Library Enhancement 🚧
 
-### 2. Parameter Value Strings ✅ DONE  
-Parameter formatting and parsing is implemented with custom formatters.
+**Goal**: Provide comprehensive DSP building blocks for plugin developers
 
-### 3. Component Handler for Parameter Change Notifications ✅ DONE
-Component handler is now stored and notification methods are implemented.
-
-```go
-// Implemented in:
-// - pkg/plugin/wrapper_controller.go: SetComponentHandler stores the handler
-// - pkg/plugin/wrapper.go: notification methods (notifyParamBeginEdit, etc.)
-// - pkg/plugin/component.go: SetParamNormalizedWithNotification method
-```
-
-**Refactoring opportunities** for plugins to use parameter notifications:
-- Auto-gain/normalization plugins can notify host of gain adjustments
-- Compressors can update gain reduction meter parameters
-- Envelope followers can update visual feedback parameters  
-- Adaptive filters can notify of automatic parameter changes
-- LFO/modulation sources can show current modulation values
-- Tempo-synced effects can update when host tempo changes
-
-**Note**: Plugins need access to the component to call SetParamNormalizedWithNotification.
-Consider adding a SetComponent method to the Processor interface or passing through context.
-
-### 4. Sample-Accurate Parameter Automation ✅ DONE
-Parameter changes are now processed at exact sample boundaries for precise automation.
-
-```go
-// Implemented in:
-// - pkg/framework/process/context.go: Parameter change collection and sorting
-// - pkg/plugin/component.go: processSampleAccurate method processes audio in chunks
-// - Zero-allocation design using sub-slices of existing buffers
-```
-
-**Implementation details**:
-- Parameter changes are collected during the parameter processing phase
-- Changes are sorted by sample offset
-- Audio is processed in chunks between parameter changes
-- Each parameter change is applied at its exact sample position
-- No allocations in the audio path - uses buffer sub-slicing
-
-### 5. State Save/Load Implementation ✅ DONE
-Complete state persistence with support for custom plugin data.
-
-```go
-// Implemented in:
-// - pkg/framework/state/manager.go: Full serialization/deserialization
-// - pkg/plugin/plugin.go: StatefulProcessor interface for custom state
-// - pkg/plugin/component.go: Integration with StatefulProcessor
-```
-
-**Features**:
-- Automatic parameter state persistence
-- Optional custom state save/load via StatefulProcessor interface
-- Version handling and forward compatibility
-- Magic header validation ("VST3GO")
-
-**Example usage**:
-```go
-// Implement StatefulProcessor to save custom data
-type DelayProcessor struct {
-    // ... fields ...
-}
-
-func (p *DelayProcessor) SaveCustomState(w io.Writer) error {
-    // Save delay buffer position, contents, etc.
-    binary.Write(w, binary.LittleEndian, p.writePos)
-    // ... save other custom data
-    return nil
-}
-
-func (p *DelayProcessor) LoadCustomState(r io.Reader) error {
-    // Load delay buffer position, contents, etc.
-    binary.Read(r, binary.LittleEndian, &p.writePos)
-    // ... load other custom data
-    return nil
-}
-```
-
-### 6. Process Context Support ✅ DONE
-Musical time, tempo, and transport information are now available to plugins.
-
-```go
-// Implemented in:
-// - pkg/vst3/buffers.go: Complete ProcessContext wrapper with all VST3 fields
-// - pkg/framework/process/context.go: TransportInfo struct with helper methods
-// - pkg/plugin/component.go: Extracts transport info from VST3 process context
-```
-
-**Features**:
-- Transport state (playing, recording, cycling)
-- Tempo in BPM
-- Time signature
-- Musical position in quarter notes
-- Bar position
-- Cycle/loop points
-- Sample-accurate timing
-- Helper methods for common calculations
-
-**Example usage**:
-```go
-func (p *DelayProcessor) ProcessAudio(ctx *process.Context) {
-    if ctx.Transport.IsPlaying && ctx.Transport.HasTempo {
-        // Sync delay time to tempo
-        samplesPerBeat := ctx.Transport.GetSamplesPerBeat(ctx.SampleRate)
-        delayTime := samplesPerBeat * 0.5 // Eighth note delay
-        
-        // Get current position
-        bars, beats := ctx.Transport.GetBarsBeats()
-        
-        // Check if we're on a beat
-        if ctx.Transport.IsOnBeat(0.01) {
-            // Trigger something on the beat
-        }
-    }
-}
-```
-
-
-## Development Roadmap
-
-### Phase 4: Developer Experience (Current) 🚧
-
-**Goal**: Make plugin development as simple as possible
-
-1. **Plugin Templates**
+1. **Dynamics Processing**
    ```go
-   // Simple as:
-   type MyPlugin struct {
-       plugin.Base
-   }
-   
-   func (p *MyPlugin) ProcessAudio(ctx *process.Context) {
-       // Your DSP here
-   }
+   // pkg/dsp/dynamics/
+   - Compressor with lookahead
+   - Limiter with true peak detection
+   - Gate with hysteresis
+   - Expander
+   - Envelope detector with multiple modes
    ```
 
-2. **Common Effects Library**
-   - Reverb template
-   - Compressor template
-   - EQ template
-   - Synthesizer template
+2. **Modulation Effects**
+   ```go
+   // pkg/dsp/modulation/
+   - LFO with multiple waveforms and sync
+   - Chorus with multiple voices
+   - Flanger with feedback
+   - Phaser with multiple stages
+   - Ring modulator
+   - Tremolo and vibrato
+   ```
 
-3. **Development Tools**
-   - Hot reload support
-   - Performance profiler
-   - Parameter automation recorder
-   - Debug visualizer
+3. **Reverb Algorithms**
+   ```go
+   // pkg/dsp/reverb/
+   - Schroeder reverb
+   - Freeverb implementation
+   - FDN (Feedback Delay Network) reverb
+   - Early reflections processor
+   - Convolution reverb support
+   ```
 
-### Phase 5: MIDI & Events 🔜
+4. **Distortion & Saturation**
+   ```go
+   // pkg/dsp/distortion/
+   - Waveshaping with multiple curves
+   - Tube saturation emulation
+   - Tape saturation emulation
+   - Bit crushing and sample rate reduction
+   - Asymmetric clipping
+   ```
 
-**Goal**: Support instrument plugins
+5. **Analysis Tools**
+   ```go
+   // pkg/dsp/analysis/
+   - FFT wrapper with window functions
+   - Spectrum analyzer
+   - Peak/RMS/LUFS meters
+   - Correlation meter
+   - Phase scope
+   ```
 
-1. **Event Processing**
-   - Note on/off events
-   - MIDI CC handling
-   - Pitch bend
-   - Basic MPE support
+6. **Utility DSP**
+   ```go
+   // pkg/dsp/utility/
+   - Noise generators (white, pink, brown)
+   - DC blocker
+   - Interpolation (cubic, sinc, all-pass)
+   - Crossfade utilities
+   - Window functions (Hann, Hamming, Blackman)
+   - Dithering algorithms
+   ```
+
+### Phase 2: MIDI & Event Support 🔜
+
+**Goal**: Enable instrument plugin development
+
+1. **Core MIDI Infrastructure**
+   ```go
+   // pkg/midi/
+   - MIDI event types (Note On/Off, CC, Pitch Bend, etc.)
+   - MIDI event queue with sample-accurate timing
+   - MIDI learn system
+   - MPE (MIDI Polyphonic Expression) support
+   ```
 
 2. **Voice Management**
-   - Voice allocator
-   - Note stealing
-   - Envelope triggering
+   ```go
+   // pkg/framework/voice/
+   - Voice allocator with multiple modes
+   - Voice stealing algorithms
+   - Portamento/glide system
+   - Unison/detune management
+   ```
 
-3. **Example Synthesizer**
-   - Simple subtractive synth
-   - Demonstrates MIDI handling
-   - Uses DSP package components
+3. **Event Processing**
+   ```go
+   // Update process.Context:
+   - Event input queue
+   - Event output queue (for MIDI effects)
+   - Sample-accurate event processing
+   ```
 
-### Phase 6: Extended Features 📅
+### Phase 3: Advanced Bus Support 🔜
 
-**Goal**: Professional plugin capabilities
+**Goal**: Professional routing capabilities
 
-1. **Advanced Bus Support**
-   - Side-chain inputs
-   - Multi-channel configurations
-   - Surround formats (5.1, 7.1)
+1. **Multi-channel Configurations**
+   - Stereo, 5.1, 7.1, Ambisonics
+   - Side-chain input support
+   - Multiple input/output buses
+   - Dynamic bus activation
 
-2. **Advanced Parameters**
-   - Parameter groups
-   - Linked parameters
-   - Meta parameters
+2. **Bus Templates**
+   ```go
+   // Common configurations
+   - EffectStereo (1 in, 1 out)
+   - EffectStereoSidechain (2 in, 1 out)
+   - SurroundPanner (1 in, 1 surround out)
+   - MixerChannel (1 in, multiple out)
+   ```
 
-3. **Performance Features**
-   - SIMD optimizations
-   - Multi-core processing
-   - Lookahead buffers
+### Phase 4: Developer Tools & Experience 🔜
 
-### Phase 7: Platform-Specific Features 📅
+**Goal**: Make plugin development delightful
 
-**Goal**: Full cross-platform support
+1. **Project Generator**
+   ```bash
+   vst3go new effect --name "MyReverb" --company "MyCompany"
+   vst3go new instrument --name "MySynth" --voices 16
+   ```
 
-1. **Windows Support**
-   - Windows-specific view handling
-   - COM integration
-   - Platform-specific optimizations
+2. **Hot Reload System**
+   - Watch for code changes
+   - Rebuild and reload in test host
+   - Preserve parameter state
 
-2. **macOS Support**
-   - Core Audio integration
-   - Metal Performance Shaders
-   - macOS-specific bundle structure
+3. **Debug Visualizer**
+   - Real-time parameter monitoring
+   - Audio scope and spectrum
+   - CPU usage profiling
+   - Memory allocation tracking
 
-3. **Linux Enhancements**
-   - Jack support
-   - Real-time kernel optimizations
+4. **Preset Management**
+   ```go
+   // pkg/framework/preset/
+   - Preset save/load system
+   - Bank management
+   - Factory preset embedding
+   - Preset morphing support
+   ```
 
-### Future: GUI Support (When Manually Approved) 🔒
+5. **Testing Framework**
+   ```go
+   // pkg/testing/
+   - Mock host implementation
+   - Automated parameter testing
+   - Audio comparison utilities
+   - Performance benchmarking
+   ```
 
-**Note**: GUI implementation will only begin when explicitly requested
+### Phase 5: Cross-Platform Support 🔜
 
-1. **View System**
-   - IPlugView implementation
-   - Platform-specific window creation
-   - Event handling
+**Goal**: True cross-platform deployment
 
-2. **Graphics Integration**
-   - OpenGL/Metal/DirectX support
-   - Hardware acceleration
-   - DPI scaling
+1. **Platform Abstraction**
+   ```go
+   // Platform-specific implementations
+   - component_windows.go (COM support)
+   - component_darwin.go (Core Foundation)
+   - component_linux.go (current implementation)
+   ```
 
-## VST3 Feature Implementation Status
+2. **Build System Enhancement**
+   - Cross-compilation support
+   - Bundle generation for macOS
+   - Installer generation for Windows
+   - Debian package generation
 
-### Core Features
-- ✅ IComponent - Basic component interface
-- ✅ IAudioProcessor - Audio processing
-- ✅ IEditController - Parameter control
-- ✅ 32-bit float processing
-- ✅ Basic stereo I/O
-- ✅ Parameter definition and storage
-- ✅ Thread-safe parameter access
-- ✅ Parameter changes from host
-- ✅ Parameter value formatting and parsing
-- 🚧 State save/load
-- ❌ 64-bit double processing
-- ❌ Multi-bus support
-- ❌ MIDI event processing
-- ❌ IEditController2 - Extended parameter features
-- ❌ IUnitInfo - Unit/preset organization
+3. **CI/CD Pipeline**
+   - GitHub Actions for all platforms
+   - Automated testing on each platform
+   - Binary releases for all platforms
 
-### Platform Support Strategy
-- **All platforms from the start** - Linux, Windows, macOS
-- Use build tags and conditional compilation:
-  ```go
-  // +build linux
-  
-  // +build windows
-  
-  // +build darwin
-  ```
-- Platform-specific code in separate files:
-  - `component_linux.go`
-  - `component_windows.go`
-  - `component_darwin.go`
-- C code with proper `#ifdef`:
-  ```c
-  #ifdef _WIN32
-    // Windows specific
-  #elif __APPLE__
-    // macOS specific
-  #else
-    // Linux specific
-  #endif
-  ```
+### Phase 6: Simple Synthesizer Example 🎹
 
-### Deferred Until Manually Approved
-- GUI support (IPlugView) - Will be added when explicitly requested
-- VST2 wrapper - Focus on VST3 only
-- AAX/AU wrappers - VST3 first
+**Goal**: Demonstrate the framework's capabilities with a complete instrument
 
-## Code Examples
+**SimpleSynth** - A subtractive synthesizer showcasing:
+- 2 Oscillators with multiple waveforms
+- ADSR envelope for amplitude
+- ADSR envelope for filter
+- State variable filter with envelope modulation
+- LFO for vibrato and filter modulation
+- Voice management (8-16 voices)
+- MIDI learn for all parameters
+- Preset support
+- < 500 lines of code
 
-### Current API (Working)
 ```go
-type DelayProcessor struct {
-    params *param.Registry
-    delay  *dsp.Line
-}
-
-func (p *DelayProcessor) ProcessAudio(ctx *process.Context) {
-    delayMs := ctx.ParamPlain(ParamDelayTime)
-    mix := float32(ctx.Param(ParamMix))
-    
-    for ch := 0; ch < ctx.NumChannels(); ch++ {
-        p.delay.ProcessBufferMix(
-            ctx.ChannelBuffer(ch), 
-            delayMs, 
-            mix,
-        )
-    }
-}
-```
-
-### Target API (Simpler)
-```go
-type DelayPlugin struct {
+type SimpleSynth struct {
     plugin.Base
-    delay *dsp.Delay
+    voices   []*SynthVoice
+    lfo      *dsp.LFO
+    reverb   *dsp.Reverb
 }
 
-func (p *DelayPlugin) Process(audio *plugin.Audio) {
-    p.delay.Process(audio, p.Params.DelayTime, p.Params.Mix)
+func (s *SimpleSynth) ProcessEvent(event midi.Event) {
+    // Handle MIDI events
+}
+
+func (s *SimpleSynth) ProcessAudio(ctx *process.Context) {
+    // Mix active voices
+    // Apply global effects
 }
 ```
 
 ## Implementation Guidelines
 
-### Architectural Principles (from guardrails.md)
+### Code Quality Standards
 
-1. **C Bridge Philosophy**: Keep it minimal
-   - Just routing, no business logic
-   - Direct VST3 C API to Go mapping
-   - All framework features in Go layers
-   - Use manifest discovery (no Go registration in C bridge)
-   - Consult [VST3 documentation](https://steinbergmedia.github.io) for interface contracts
+1. **Zero Allocation Rule**
+   - Pre-allocate all buffers in Initialize()
+   - Use object pools for temporary objects
+   - Verify with benchmarks
 
-2. **Layered Architecture**:
-   - Layer 1: Minimal C bridge
-   - Layer 2: Go-idiomatic abstractions
-   - Layer 3: DSP utilities
-   - Layer 4: Developer conveniences
+2. **Thread Safety**
+   - Use atomic operations for parameters
+   - Minimize mutex usage in audio path
+   - Document thread safety guarantees
 
-3. **No Over-Abstraction**:
-   - VST3 concepts remain accessible
-   - Provide escape hatches
-   - Make simple tasks simple
+3. **Testing Requirements**
+   - Unit tests for all DSP algorithms
+   - Benchmark tests for performance
+   - Integration tests with test host
+   - Cross-platform build verification
 
-4. **Move Fast, Break Things**:
-   - No backwards compatibility concerns
-   - Delete old code when refactoring
-   - Iterate quickly
+### API Design Principles
 
-### Zero Allocation Rules
-1. Pre-allocate all buffers in `Initialize()`
-2. Pre-allocate object pools in `Initialize()`:
+1. **Idiomatic Go**
    ```go
-   // In Initialize():
-   pool := &WorkBufferPool{
-       buffers: make([][]float32, maxConcurrency),
-   }
-   for i := range pool.buffers {
-       pool.buffers[i] = make([]float32, maxBlockSize)
-   }
+   // Good: Go-style API
+   filter := dsp.NewBiquad(dsp.LowPass, 1000, 0.7)
    
-   // In ProcessAudio():
-   work := pool.Get()  // Just returns pre-allocated buffer
-   defer pool.Put(work) // Returns to pool, no deallocation
+   // Avoid: C++ style
+   filter := dsp.NewBiquadFilter()
+   filter.SetType(dsp.FILTER_TYPE_LOWPASS)
+   filter.SetFrequency(1000)
    ```
-3. Avoid slice append in audio path
-4. No string operations in audio path
-5. Use atomic operations for parameters
-6. All allocations happen during initialization, not processing
 
-### Cross-Platform Development
-1. **Build Tags**: Use for platform-specific Go code
+2. **Builder Pattern for Complex Objects**
    ```go
-   // +build windows,amd64
+   reverb := dsp.NewReverb().
+       WithRoomSize(0.8).
+       WithDamping(0.5).
+       WithPreDelay(20 * time.Millisecond).
+       Build()
    ```
 
-2. **Conditional Compilation**: Use for C code
-   ```c
-   #ifdef _WIN32
-     // Windows code
-   #endif
+3. **Functional Options**
+   ```go
+   osc := dsp.NewOscillator(
+       dsp.WithWaveform(dsp.Sawtooth),
+       dsp.WithAntiAliasing(true),
+   )
    ```
-
-3. **Platform Files**: Separate implementations
-   - Common interface in `component.go`
-   - Platform code in `component_<platform>.go`
-
-4. **Testing**: Must test on all target platforms
-
-### Testing Requirements
-1. All plugins must pass VST3 validator
-2. Benchmark tests for allocation checking
-3. Integration tests with test host
-4. Cross-platform build verification
-5. Platform-specific test targets in Makefile
-
-## Getting Started
-
-### Building
-```bash
-# Build all example plugins (auto-detects platform)
-make all-examples
-
-# Build for specific platform
-make all-examples GOOS=windows
-make all-examples GOOS=darwin
-
-# Build specific plugin
-make gain
-make filter
-
-# Run VST3 validation
-make test-validate PLUGIN_NAME=SimpleGain
-
-# Install to platform-specific VST3 directory
-make install  # Uses ~/.vst3 on Linux, appropriate dirs on Windows/macOS
-```
-
-### Creating a Plugin
-1. Copy an example plugin
-2. Modify the DSP processing
-3. Adjust parameters as needed
-4. Build and test
-
-## Resources
-
-- [VST3 SDK Documentation](https://steinbergmedia.github.io/vst3_dev_portal/)
-- [VST3 Developer Portal](https://steinbergmedia.github.io) - Complete VST3 architecture and development principles
-  - Architecture overview and design patterns
-  - Interface specifications and expected behaviors
-  - Best practices for plugin development
-  - Guidelines for host/plugin communication
-- [VST3 C API Header](./include/vst3/vst3_c_api.h)
-- [Example Plugins](./examples/)
-- [Architecture Guide](./docs/architecture.md)
-
-## Success Metrics
-
-### v1.0 Requirements
-- ✅ Pass VST3 validator
-- ✅ Zero allocations in audio path
-- ✅ < 200 lines for basic effects
-- ✅ Follows architectural guardrails
-- ✅ Cross-platform support (Linux, Windows, macOS)
-- ✅ Parameter automation working
-- 🚧 State persistence working
-- 🚧 Used in production by at least one user
-- 📅 Documentation complete
-- 📅 10+ example plugins
-
-### Post v1.0 Goals
-- MIDI/Instrument support
-- Performance competitive with C++
-- Active community
-- Plugin marketplace
-- GUI support (when approved)
 
 ## Code Quality & Refactoring Opportunities
 
@@ -515,6 +337,38 @@ make install  # Uses ~/.vst3 on Linux, appropriate dirs on Windows/macOS
      - `QuarterNotesPerWhole = 4.0`
      - `SecondsPerMinute = 60.0`
      - `DefaultParamChangeBufferSize = 128`
+
+## Success Metrics
+
+### v1.0 Requirements
+- ✅ Pass VST3 validator
+- ✅ Zero allocations in audio path
+- ✅ < 200 lines for basic effects
+- ✅ Follows architectural guardrails
+- ✅ Cross-platform support (Linux, Windows, macOS)
+- ✅ Parameter automation working
+- ✅ State persistence working
+- 🚧 Comprehensive DSP library
+- 🚧 MIDI support for instruments
+- 🚧 Developer tools and templates
+- 📅 Documentation complete
+- 📅 15+ example plugins
+- 📅 Simple synthesizer example
+
+### Post v1.0 Goals
+- Performance competitive with C++
+- Active community
+- Plugin marketplace
+- Visual plugin builder
+- AI-assisted DSP development
+
+## Resources
+
+- [VST3 SDK Documentation](https://steinbergmedia.github.io/vst3_dev_portal/)
+- [VST3 Developer Portal](https://steinbergmedia.github.io)
+- [VST3 C API Header](./include/vst3/vst3_c_api.h)
+- [Example Plugins](./examples/)
+- [Architecture Guide](./docs/architecture.md)
 
 ---
 
