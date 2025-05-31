@@ -146,3 +146,70 @@ func (s *StreamWrapper) ReadString() (string, error) {
 	}
 	return string(buf), nil
 }
+
+// ReadAll reads all remaining data from the stream
+func (s *StreamWrapper) ReadAll() ([]byte, error) {
+	if s.stream == nil {
+		return nil, ErrNotImplemented
+	}
+
+	// Try to determine current position and file size
+	var currentPos C.int64_t
+	result := C.stream_tell(s.stream, &currentPos)
+	if result != 0 {
+		// If we can't get position, read in chunks
+		return s.readAllChunked()
+	}
+
+	// Try to seek to end to get size
+	var endPos C.int64_t
+	result = C.stream_seek(s.stream, 0, 2, &endPos) // SEEK_END = 2
+	if result != 0 {
+		return s.readAllChunked()
+	}
+
+	// Calculate remaining size
+	remaining := int32(endPos - currentPos)
+	if remaining <= 0 {
+		return []byte{}, nil
+	}
+
+	// Seek back to current position
+	var newPos C.int64_t
+	result = C.stream_seek(s.stream, currentPos, 0, &newPos) // SEEK_SET = 0
+	if result != 0 {
+		return s.readAllChunked()
+	}
+
+	// Read all remaining data
+	buffer := make([]byte, remaining)
+	n, err := s.Read(buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer[:n], nil
+}
+
+// readAllChunked reads data in chunks when seeking is not supported
+func (s *StreamWrapper) readAllChunked() ([]byte, error) {
+	var result []byte
+	chunkSize := int32(4096)
+
+	for {
+		chunk := make([]byte, chunkSize)
+		n, err := s.Read(chunk)
+		if err != nil {
+			return nil, err
+		}
+		if n == 0 {
+			break
+		}
+		result = append(result, chunk[:n]...)
+		if n < chunkSize {
+			break // End of stream
+		}
+	}
+
+	return result, nil
+}

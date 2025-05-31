@@ -2,6 +2,8 @@
 package process
 
 import (
+	"fmt"
+	
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 )
 
@@ -95,5 +97,20 @@ func (c *Context) Clear() {
 		for i := range c.Output[ch] {
 			c.Output[ch][i] = 0
 		}
+	}
+}
+
+// SetParameterAtOffset sets a parameter value at a specific sample offset within the current block
+// This immediately updates the parameter in the registry for the current processing block
+func (c *Context) SetParameterAtOffset(paramID uint32, value float64, sampleOffset int) {
+	if param := c.params.Get(paramID); param != nil {
+		// For now, apply the change immediately
+		// TODO: For true sample-accurate automation, we would need to process 
+		// audio in chunks up to each parameter change point
+		param.SetValue(value)
+		
+		// Debug output for parameter changes
+		fmt.Printf("[PARAM_AUTOMATION] SetParameterAtOffset: id=%d, value=%.6f, offset=%d, plain=%.1f\n", 
+			paramID, value, sampleOffset, param.GetPlainValue())
 	}
 }

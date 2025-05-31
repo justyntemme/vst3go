@@ -136,3 +136,104 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE factory_createInstance(void* thi
     *obj = instance;
     return ((Steinberg_tresult)0);
 }
+
+// Parameter automation helper functions implementation
+
+int32_t getParameterChangeCount(void* inputParameterChanges) {
+    if (!inputParameterChanges) {
+        DBG_LOG("getParameterChangeCount: inputParameterChanges is NULL");
+        return 0;
+    }
+    
+    struct Steinberg_Vst_IParameterChanges* changes = (struct Steinberg_Vst_IParameterChanges*)inputParameterChanges;
+    if (!changes->lpVtbl || !changes->lpVtbl->getParameterCount) {
+        DBG_LOG("getParameterChangeCount: vtable or method is NULL");
+        return 0;
+    }
+    
+    int32_t count = changes->lpVtbl->getParameterCount(changes);
+    DBG_LOG("getParameterChangeCount: returning %d parameters", count);
+    return count;
+}
+
+void* getParameterData(void* inputParameterChanges, int32_t index) {
+    if (!inputParameterChanges) {
+        DBG_LOG("getParameterData: inputParameterChanges is NULL");
+        return NULL;
+    }
+    
+    struct Steinberg_Vst_IParameterChanges* changes = (struct Steinberg_Vst_IParameterChanges*)inputParameterChanges;
+    if (!changes->lpVtbl || !changes->lpVtbl->getParameterData) {
+        DBG_LOG("getParameterData: vtable or method is NULL");
+        return NULL;
+    }
+    
+    struct Steinberg_Vst_IParamValueQueue* queue = changes->lpVtbl->getParameterData(changes, index);
+    DBG_LOG("getParameterData: index=%d, returning queue=%p", index, queue);
+    return queue;
+}
+
+uint32_t getParameterId(void* paramQueue) {
+    if (!paramQueue) {
+        DBG_LOG("getParameterId: paramQueue is NULL");
+        return 0;
+    }
+    
+    struct Steinberg_Vst_IParamValueQueue* queue = (struct Steinberg_Vst_IParamValueQueue*)paramQueue;
+    if (!queue->lpVtbl || !queue->lpVtbl->getParameterId) {
+        DBG_LOG("getParameterId: vtable or method is NULL");
+        return 0;
+    }
+    
+    uint32_t paramId = queue->lpVtbl->getParameterId(queue);
+    DBG_LOG("getParameterId: returning paramId=%u", paramId);
+    return paramId;
+}
+
+int32_t getPointCount(void* paramQueue) {
+    if (!paramQueue) {
+        DBG_LOG("getPointCount: paramQueue is NULL");
+        return 0;
+    }
+    
+    struct Steinberg_Vst_IParamValueQueue* queue = (struct Steinberg_Vst_IParamValueQueue*)paramQueue;
+    if (!queue->lpVtbl || !queue->lpVtbl->getPointCount) {
+        DBG_LOG("getPointCount: vtable or method is NULL");
+        return 0;
+    }
+    
+    int32_t count = queue->lpVtbl->getPointCount(queue);
+    DBG_LOG("getPointCount: returning %d points", count);
+    return count;
+}
+
+int32_t getPoint(void* paramQueue, int32_t index, int32_t* sampleOffset, double* value) {
+    if (!paramQueue) {
+        DBG_LOG("getPoint: paramQueue is NULL");
+        return 1; // kResultFalse
+    }
+    
+    if (!sampleOffset || !value) {
+        DBG_LOG("getPoint: sampleOffset or value pointer is NULL");
+        return 1; // kResultFalse
+    }
+    
+    struct Steinberg_Vst_IParamValueQueue* queue = (struct Steinberg_Vst_IParamValueQueue*)paramQueue;
+    if (!queue->lpVtbl || !queue->lpVtbl->getPoint) {
+        DBG_LOG("getPoint: vtable or method is NULL");
+        return 1; // kResultFalse
+    }
+    
+    // VST3 uses ParamValue which is double
+    Steinberg_Vst_ParamValue vstValue;
+    Steinberg_tresult result = queue->lpVtbl->getPoint(queue, index, sampleOffset, &vstValue);
+    
+    if (result == 0) { // kResultOk
+        *value = vstValue;
+        DBG_LOG("getPoint: index=%d, sampleOffset=%d, value=%.6f", index, *sampleOffset, *value);
+    } else {
+        DBG_LOG("getPoint: failed with result=%d", result);
+    }
+    
+    return result;
+}

@@ -125,6 +125,7 @@ issues:
       linters:
         - lll
         - mnd
+        - gocritic  # C interop patterns may trigger false positives
     # Plugin package deals with C interop and has some necessary duplication
     - path: pkg/plugin/
       linters:

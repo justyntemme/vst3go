@@ -53,7 +53,6 @@ func NewGainProcessor() *GainProcessor {
 		param.New(ParamGain, "Gain").
 			Range(-24, 24).
 			Default(0).
-			Unit("dB").
 			Formatter(param.DecibelFormatter, param.DecibelParser).
 			Build(),
 	)
@@ -63,7 +62,6 @@ func NewGainProcessor() *GainProcessor {
 		param.New(ParamOutputLevel, "Output Level").
 			Range(-60, 0).
 			Default(-60).
-			Unit("dB").
 			Formatter(param.DecibelFormatter, nil). // No parser needed for read-only
 			Flags(param.IsReadOnly).
 			Build(),

@@ -334,7 +334,22 @@ func GoComponentSetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.St
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
 
-	// TODO: Implement state loading
+	// Read from VST3 stream
+	streamWrapper := vst3.NewStreamWrapper(state)
+	if streamWrapper == nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+
+	stateData, err := streamWrapper.ReadAll()
+	if err != nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+
+	// Apply state to component
+	if err := wrapper.component.SetState(stateData); err != nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+
 	return C.Steinberg_tresult(vst3.ResultOK)
 }
 
@@ -345,6 +360,22 @@ func GoComponentGetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.St
 		return C.Steinberg_tresult(vst3.ResultFalse)
 	}
 
-	// TODO: Implement state saving
+	// Get state from component
+	stateData, err := wrapper.component.GetState()
+	if err != nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+
+	// Write to VST3 stream
+	streamWrapper := vst3.NewStreamWrapper(state)
+	if streamWrapper == nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+
+	_, err = streamWrapper.Write(stateData)
+	if err != nil {
+		return C.Steinberg_tresult(vst3.ResultFalse)
+	}
+
 	return C.Steinberg_tresult(vst3.ResultOK)
 }

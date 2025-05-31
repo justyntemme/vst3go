@@ -20,9 +20,9 @@ BUILD_DIR := build
 BRIDGE_DIR := bridge
 PLUGIN_NAME ?= SimpleGain
 
-# Compiler flags
-CFLAGS := -fPIC -I./include -O2
-LDFLAGS := -shared
+# Compiler flags - Default to debug mode
+CFLAGS := -fPIC -I./include -g -O0 -DDEBUG_VST3GO
+LDFLAGS := -shared -g
 
 # Debug flags
 DEBUG_CFLAGS := -fPIC -I./include -g -O0 -DDEBUG_VST3GO
@@ -58,7 +58,6 @@ $(BUILD_DIR)/SimpleGain.$(SO_EXT): examples/gain/main.go $(BRIDGE_DIR)/bridge.c 
 	@echo "Building SimpleGain VST3 plugin as single library"
 	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
 		-o $@ \
-		-ldflags="-s -w" \
 		./examples/gain
 
 # Build SimpleDelay plugin as a single shared library
@@ -67,7 +66,6 @@ $(BUILD_DIR)/SimpleDelay.$(SO_EXT): examples/delay/main.go $(BRIDGE_DIR)/bridge.
 	@echo "Building SimpleDelay VST3 plugin as single library"
 	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
 		-o $@ \
-		-ldflags="-s -w" \
 		./examples/delay
 
 # Build MultiModeFilter plugin as a single shared library
@@ -76,7 +74,6 @@ $(BUILD_DIR)/MultiModeFilter.$(SO_EXT): examples/filter/main.go $(BRIDGE_DIR)/br
 	@echo "Building MultiModeFilter VST3 plugin as single library"
 	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
 		-o $@ \
-		-ldflags="-s -w" \
 		./examples/filter
 
 # Create VST3 bundle

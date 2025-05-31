@@ -13,35 +13,20 @@ import (
 //
 //export GoEditControllerSetComponentState
 func GoEditControllerSetComponentState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
-	wrapper := getComponent(uintptr(componentPtr))
-	if wrapper == nil {
-		return C.Steinberg_tresult(vst3.ResultFalse)
-	}
-
-	// TODO: Implement state loading
-	return C.Steinberg_tresult(vst3.ResultOK)
+	// Component state received from processor - apply to edit controller
+	return GoComponentSetState(componentPtr, state)
 }
 
 //export GoEditControllerSetState
 func GoEditControllerSetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
-	wrapper := getComponent(uintptr(componentPtr))
-	if wrapper == nil {
-		return C.Steinberg_tresult(vst3.ResultFalse)
-	}
-
-	// TODO: Implement state loading
-	return C.Steinberg_tresult(vst3.ResultOK)
+	// Edit controller state is typically the same as component state
+	return GoComponentSetState(componentPtr, state)
 }
 
 //export GoEditControllerGetState
 func GoEditControllerGetState(componentPtr unsafe.Pointer, state unsafe.Pointer) C.Steinberg_tresult {
-	wrapper := getComponent(uintptr(componentPtr))
-	if wrapper == nil {
-		return C.Steinberg_tresult(vst3.ResultFalse)
-	}
-
-	// TODO: Implement state saving
-	return C.Steinberg_tresult(vst3.ResultOK)
+	// Edit controller state is typically the same as component state
+	return GoComponentGetState(componentPtr, state)
 }
 
 //export GoEditControllerGetParameterCount

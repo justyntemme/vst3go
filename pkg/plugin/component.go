@@ -2,13 +2,17 @@ package plugin
 
 // #cgo CFLAGS: -I../../include
 // #include "../../include/vst3/vst3_c_api.h"
+// #include "../../bridge/bridge.h"
 import "C"
 import (
+	"bytes"
+	"fmt"
 	"sync"
 	"unsafe"
 
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/process"
+	"github.com/justyntemme/vst3go/pkg/framework/state"
 	"github.com/justyntemme/vst3go/pkg/vst3"
 )
 
@@ -86,22 +90,50 @@ func (c *componentImpl) ActivateBus(mediaType, direction, index int32, state boo
 	return nil
 }
 
-func (c *componentImpl) SetActive(state bool) error {
+func (c *componentImpl) SetActive(active bool) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.active = state
-	return c.processor.SetActive(state)
+	c.active = active
+	return c.processor.SetActive(active)
 }
 
-func (c *componentImpl) SetState(state []byte) error {
-	// State management will be handled by the framework
-	return nil
+func (c *componentImpl) SetState(stateData []byte) error {
+	if c.processor == nil {
+		return fmt.Errorf("no processor available")
+	}
+
+	// Get parameter registry from processor
+	params := c.processor.GetParameters()
+	if params == nil {
+		return fmt.Errorf("no parameters available")
+	}
+
+	// Create state manager and load state
+	stateManager := state.NewManager(params)
+	buf := bytes.NewReader(stateData)
+	return stateManager.Load(buf)
 }
 
 func (c *componentImpl) GetState() ([]byte, error) {
-	// State management will be handled by the framework
-	return []byte{}, nil
+	if c.processor == nil {
+		return nil, fmt.Errorf("no processor available")
+	}
+
+	// Get parameter registry from processor
+	params := c.processor.GetParameters()
+	if params == nil {
+		return nil, fmt.Errorf("no parameters available")
+	}
+
+	// Create state manager and save state
+	stateManager := state.NewManager(params)
+	var buf bytes.Buffer
+	if err := stateManager.Save(&buf); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 // IAudioProcessor implementation
@@ -206,9 +238,35 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 		}
 	}
 
-	// Process parameter changes
+	// Process parameter changes using C helper functions for sample-accurate automation
 	if processData.inputParameterChanges != nil {
-		// TODO: Implement parameter change processing
+		// Get parameter count using C helper function
+		paramCount := C.getParameterChangeCount(unsafe.Pointer(processData.inputParameterChanges))
+
+		// Process each parameter that has changes
+		for i := C.int32_t(0); i < paramCount; i++ {
+			paramQueue := C.getParameterData(unsafe.Pointer(processData.inputParameterChanges), i)
+			if paramQueue != nil {
+				// Get parameter ID
+				paramID := C.getParameterId(paramQueue)
+
+				// Get number of automation points
+				pointCount := C.getPointCount(paramQueue)
+
+				// Process all automation points for this parameter
+				for j := C.int32_t(0); j < pointCount; j++ {
+					var sampleOffset C.int32_t
+					var value C.double
+
+					// Get the automation point
+					result := C.getPoint(paramQueue, j, &sampleOffset, &value)
+					if result == 0 { // kResultOk
+						// Apply parameter change at specific sample offset
+						c.processCtx.SetParameterAtOffset(uint32(paramID), float64(value), int(sampleOffset))
+					}
+				}
+			}
+		}
 	}
 
 	// Call processor with context
@@ -289,6 +347,9 @@ func (c *componentImpl) GetParamNormalized(id uint32) float64 {
 
 func (c *componentImpl) SetParamNormalized(id uint32, value float64) error {
 	if p := c.processor.GetParameters().Get(id); p != nil {
+		// Debug parameter changes
+		fmt.Printf("[PARAM_CHANGE] SetParamNormalized: id=%d, value=%.3f, plain=%.1f\n", 
+			id, value, p.Min + value*(p.Max-p.Min))
 		p.SetValue(value)
 		return nil
 	}
