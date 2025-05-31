@@ -87,21 +87,49 @@ All examples build successfully and pass VST3 validation tests.
 - [x] Range control
 - [x] Side-chain filter
 
-**1.5 Dynamics - Expander** 🔜
-- [ ] Downward expander
-- [ ] Ratio and threshold controls
-- [ ] Smooth envelope following
+**1.5 Dynamics - Expander** ✅ DONE
+- [x] Downward expander
+- [x] Ratio and threshold controls
+- [x] Smooth envelope following
 
-2. **Modulation Effects**
-   ```go
-   // pkg/dsp/modulation/
-   - LFO with multiple waveforms and sync
-   - Chorus with multiple voices
-   - Flanger with feedback
-   - Phaser with multiple stages
-   - Ring modulator
-   - Tremolo and vibrato
-   ```
+**Phase 1: DSP Library Enhancement (continued)**
+
+**2.1 Modulation - LFO** ✅ DONE
+- [x] Multiple waveforms (sine, triangle, square, saw, random)
+- [x] Frequency, depth, and offset controls
+- [x] Phase control and sync capability
+- [x] Sample-and-hold random generator
+
+**2.2 Modulation - Chorus** ✅ DONE
+- [x] Multi-voice chorus (up to 4 voices)
+- [x] Delay modulation with LFO
+- [x] Stereo spread control
+- [x] Mix and feedback parameters
+
+**2.3 Modulation - Flanger** ✅ DONE
+- [x] Short delay line with feedback
+- [x] LFO modulation of delay time
+- [x] Resonance control (via feedback)
+- [x] Stereo operation (inverted phase)
+
+**2.4 Modulation - Phaser** ✅ DONE
+- [x] All-pass filter cascade
+- [x] 2/4/6/8 stage options
+- [x] LFO modulation
+- [x] Feedback control
+
+**2.5 Modulation - Ring Modulator** ✅ DONE
+- [x] Carrier oscillator
+- [x] Modulator input
+- [x] Mix control
+
+**2.6 Modulation - Tremolo** ✅ DONE
+- [x] Amplitude modulation
+- [x] LFO-based with multiple waveforms
+- [x] Stereo/mono operation
+- [x] Normal and harmonic modes
+- [x] Smoothing for square wave
+- [x] Stereo phase control
 
 3. **Reverb Algorithms**
    ```go
@@ -179,7 +207,7 @@ All examples build successfully and pass VST3 validation tests.
 **Goal**: Professional routing capabilities
 
 1. **Multi-channel Configurations**
-   - Stereo, 5.1, 7.1, Ambisonics
+   - Stereo, (others will be implemented post release)
    - Side-chain input support
    - Multiple input/output buses
    - Dynamic bus activation
@@ -202,60 +230,7 @@ All examples build successfully and pass VST3 validation tests.
    vst3go new effect --name "MyReverb" --company "MyCompany"
    vst3go new instrument --name "MySynth" --voices 16
    ```
-
-2. **Hot Reload System**
-   - Watch for code changes
-   - Rebuild and reload in test host
-   - Preserve parameter state
-
-3. **Debug Visualizer**
-   - Real-time parameter monitoring
-   - Audio scope and spectrum
-   - CPU usage profiling
-   - Memory allocation tracking
-
-4. **Preset Management**
-   ```go
-   // pkg/framework/preset/
-   - Preset save/load system
-   - Bank management
-   - Factory preset embedding
-   - Preset morphing support
-   ```
-
-5. **Testing Framework**
-   ```go
-   // pkg/testing/
-   - Mock host implementation
-   - Automated parameter testing
-   - Audio comparison utilities
-   - Performance benchmarking
-   ```
-
 ### Phase 5: Cross-Platform Support 🔒 DEFERRED
-
-**Goal**: True cross-platform deployment
-
-**Status**: Deferred until further notice. Focus on Linux platform initially.
-
-1. **Platform Abstraction**
-   ```go
-   // Platform-specific implementations
-   - component_windows.go (COM support)
-   - component_darwin.go (Core Foundation)
-   - component_linux.go (current implementation)
-   ```
-
-2. **Build System Enhancement**
-   - Cross-compilation support
-   - Bundle generation for macOS
-   - Installer generation for Windows
-   - Debian package generation
-
-3. **CI/CD Pipeline**
-   - GitHub Actions for all platforms
-   - Automated testing on each platform
-   - Binary releases for all platforms
 
 ### Phase 6: Simple Synthesizer Example 🎹
 
@@ -270,7 +245,6 @@ All examples build successfully and pass VST3 validation tests.
 - Voice management (8-16 voices)
 - MIDI learn for all parameters
 - Preset support
-- < 500 lines of code
 
 ```go
 type SimpleSynth struct {
@@ -375,7 +349,6 @@ func (s *SimpleSynth) ProcessAudio(ctx *process.Context) {
 ### v1.0 Requirements
 - ✅ Pass VST3 validator
 - ✅ Zero allocations in audio path
-- ✅ < 200 lines for basic effects
 - ✅ Follows architectural guardrails
 - 🔒 Cross-platform support (Linux only for now, others deferred)
 - ✅ Parameter automation working
@@ -387,16 +360,146 @@ func (s *SimpleSynth) ProcessAudio(ctx *process.Context) {
 - 📅 15+ example plugins
 - 📅 Simple synthesizer example
 
+## Example Plugins Roadmap
+
+### Phase 1: Dynamics Examples 🔜
+
+**1. MasterCompressor** - Professional Compressor Plugin
+- Demonstrates: Compressor, Envelope Detector, Stereo Linking
+- Features:
+  - Threshold, Ratio, Attack, Release, Knee controls
+  - Makeup gain with auto-gain option
+  - Lookahead for transparent compression
+  - Sidechain filter (high-pass)
+  - Gain reduction meter
+  - Stereo linked processing
+- Implementation Guide:
+  ```go
+  // Use pkg/dsp/dynamics/compressor.go
+  // Add sidechain HPF using simple filter
+  // Parameter ranges: threshold -60 to 0 dB, ratio 1:1 to 20:1
+  // Attack 0.1-100ms, Release 10-1000ms
+  ```
+
+**2. StudioGate** - Noise Gate Plugin
+- Demonstrates: Gate with hysteresis, hold time, range control
+- Features:
+  - Threshold with hysteresis display
+  - Attack/Hold/Release envelope
+  - Range control (max attenuation)
+  - Sidechain filter (HPF for kick drum gating)
+  - Gate state LED (open/closed)
+- Implementation Guide:
+  ```go
+  // Use pkg/dsp/dynamics/gate.go
+  // Add visual feedback for gate state
+  // Parameter ranges: threshold -80 to 0 dB, hysteresis 0-10 dB
+  // Hold 0-100ms, Range -80 to 0 dB
+  ```
+
+**3. TransientShaper** - Expander/Transient Designer
+- Demonstrates: Expander for enhancing transients
+- Features:
+  - Downward expansion for punch
+  - Attack and sustain controls
+  - Parallel processing (mix)
+  - Output gain
+- Implementation Guide:
+  ```go
+  // Use pkg/dsp/dynamics/expander.go
+  // Add parallel processing path
+  // Focus on drum enhancement use case
+  ```
+
+**4. MasterLimiter** - Brick-wall Limiter
+- Demonstrates: Limiter with true peak detection
+- Features:
+  - Ceiling control
+  - Release time
+  - True peak detection on/off
+  - Lookahead for transparency
+  - Gain reduction meter
+- Implementation Guide:
+  ```go
+  // Use pkg/dsp/dynamics/limiter.go
+  // Simple interface focused on mastering
+  // Ceiling -3 to 0 dB, Release 1-100ms
+  ```
+
+### Phase 2: Modulation Examples 🔜
+
+**5. VintageChorus** - Classic Chorus Effect
+- Demonstrates: Multi-voice chorus with LFO modulation
+- Features:
+  - Rate, Depth, Delay, Mix controls
+  - 1-4 voice selection
+  - Stereo spread
+  - Feedback for richer sound
+- Implementation Guide:
+  ```go
+  // Use pkg/dsp/modulation/chorus.go
+  // Preset system for classic sounds
+  // Rate 0.1-10 Hz, Depth 0-10ms, Delay 10-50ms
+  ```
+
+**6. JetFlanger** - Flanger Effect (when implemented)
+- Demonstrates: Flanger with feedback
+- Features:
+  - Rate, Depth, Feedback, Mix
+  - Manual control for static flanging
+  - Negative feedback option
+- Implementation Guide:
+  ```go
+  // Use pkg/dsp/modulation/flanger.go (to be created)
+  // Very short delays (0.5-10ms)
+  // High feedback for jet sounds
+  ```
+
+### Phase 3: Multi-Effect Examples 🔜
+
+**7. VocalStrip** - Channel Strip for Vocals
+- Demonstrates: Combining multiple processors
+- Features:
+  - Gate → Compressor → EQ → Limiter chain
+  - Each section bypassable
+  - Preset management
+- Implementation Guide:
+  ```go
+  // Combine gate, compressor, filter, limiter
+  // Show proper gain staging
+  // Focus on vocal processing presets
+  ```
+
+**8. DrumBus** - Drum Bus Processor
+- Demonstrates: Parallel compression, transient shaping
+- Features:
+  - Parallel compressor with HPF sidechain
+  - Transient shaper (expander)
+  - Glue compression
+  - Mix control
+- Implementation Guide:
+  ```go
+  // Combine compressor and expander
+  // Parallel processing architecture
+  // Optimized for drum busses
+  ```
+
+### Implementation Priority
+1. Start with MasterCompressor as it's the most commonly used
+2. Then StudioGate to show the gate implementation
+3. VintageChorus to demonstrate modulation
+4. Continue based on DSP library progress
+
+### Example Plugin Guidelines
+- Focus on one primary DSP feature
+- Include comprehensive parameter ranges
+- Add presets where appropriate
+- Include usage comments
+- Ensure VST3 validation passes
+
 ### GUI Support 🔒 DEFERRED
 
 **Status**: GUI implementation (IPlugView) is deferred until manually approved. The framework will remain audio-only until further notice.
-
-### Post v1.0 Goals
-- Performance competitive with C++
-- Active community
-- Plugin marketplace
-- Visual plugin builder (requires GUI support)
-- AI-assisted DSP development
 
 ## Resources
 
