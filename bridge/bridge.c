@@ -65,7 +65,11 @@ int ModuleEntry(void* sharedLibraryHandle) {
     }
     
     // Module initialization
-    // Note: Go runtime is already initialized by the shared library
+    // Wait for Go initialization to complete
+    DBG_LOG("ModuleEntry: Waiting for Go initialization");
+    GoWaitForInitialization();
+    DBG_LOG("ModuleEntry: Go initialization complete");
+    
     moduleInitialized = 1;
     return 1; // true
 }

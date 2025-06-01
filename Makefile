@@ -32,7 +32,7 @@ DEBUG_LDFLAGS := -shared -g
 all: gain
 
 # Build all example plugins
-all-examples: gain delay filter
+all-examples: gain delay filter compressor gate
 
 # Build gain example
 gain: PLUGIN_NAME := SimpleGain
@@ -76,6 +76,30 @@ $(BUILD_DIR)/MultiModeFilter.$(SO_EXT): examples/filter/main.go $(BRIDGE_DIR)/br
 		-o $@ \
 		./examples/filter
 
+# Build compressor example
+compressor: PLUGIN_NAME := MasterCompressor
+compressor: $(BUILD_DIR)/MasterCompressor.$(SO_EXT)
+
+# Build MasterCompressor plugin as a single shared library
+$(BUILD_DIR)/MasterCompressor.$(SO_EXT): examples/compressor/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building MasterCompressor VST3 plugin as single library"
+	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
+		-o $@ \
+		./examples/compressor
+
+# Build gate example
+gate: PLUGIN_NAME := StudioGate
+gate: $(BUILD_DIR)/StudioGate.$(SO_EXT)
+
+# Build StudioGate plugin as a single shared library
+$(BUILD_DIR)/StudioGate.$(SO_EXT): examples/gate/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building StudioGate VST3 plugin as single library"
+	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
+		-o $@ \
+		./examples/gate
+
 # Create VST3 bundle
 bundle: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
 	@echo "Creating VST3 bundle for $(PLUGIN_NAME)"
@@ -113,6 +137,22 @@ install: all-examples
 	@rm -rf ~/.vst3/MultiModeFilter.vst3
 	@cp -r $(BUILD_DIR)/MultiModeFilter.vst3 ~/.vst3/
 	@echo "Installed: ~/.vst3/MultiModeFilter.vst3"
+	@echo "Creating and installing MasterCompressor.vst3 bundle"
+	@rm -rf $(BUILD_DIR)/MasterCompressor.vst3
+	@mkdir -p $(BUILD_DIR)/MasterCompressor.vst3/Contents/$(VST3_ARCH)
+	@cp $(BUILD_DIR)/MasterCompressor.$(SO_EXT) $(BUILD_DIR)/MasterCompressor.vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/MasterCompressor.vst3/Contents/$(VST3_ARCH)/MasterCompressor.$(SO_EXT)
+	@rm -rf ~/.vst3/MasterCompressor.vst3
+	@cp -r $(BUILD_DIR)/MasterCompressor.vst3 ~/.vst3/
+	@echo "Installed: ~/.vst3/MasterCompressor.vst3"
+	@echo "Creating and installing StudioGate.vst3 bundle"
+	@rm -rf $(BUILD_DIR)/StudioGate.vst3
+	@mkdir -p $(BUILD_DIR)/StudioGate.vst3/Contents/$(VST3_ARCH)
+	@cp $(BUILD_DIR)/StudioGate.$(SO_EXT) $(BUILD_DIR)/StudioGate.vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/StudioGate.vst3/Contents/$(VST3_ARCH)/StudioGate.$(SO_EXT)
+	@rm -rf ~/.vst3/StudioGate.vst3
+	@cp -r $(BUILD_DIR)/StudioGate.vst3 ~/.vst3/
+	@echo "Installed: ~/.vst3/StudioGate.vst3"
 	@echo "All example plugins installed successfully"
 
 # Alias for install
@@ -202,6 +242,8 @@ help:
 	@echo "  make gain         - Build the SimpleGain example plugin"
 	@echo "  make delay        - Build the SimpleDelay example plugin"
 	@echo "  make filter       - Build the MultiModeFilter example plugin"
+	@echo "  make compressor   - Build the MasterCompressor example plugin"
+	@echo "  make gate         - Build the StudioGate example plugin"
 	@echo "  make all-examples - Build all example plugins"
 	@echo "  make bundle       - Create VST3 bundle for current plugin"
 	@echo "  make install      - Build and install all example plugins to ~/.vst3"
@@ -227,6 +269,6 @@ help:
 	@echo ""
 	@echo "  make help         - Show this help message"
 
-.PHONY: all all-examples gain delay filter bundle install install-all clean help \
+.PHONY: all all-examples gain delay filter compressor gate bundle install install-all clean help \
 	lint fmt fmt-check test test-go test-validate test-quick test-extensive \
 	test-local test-bundle test-list test-selftest test-all

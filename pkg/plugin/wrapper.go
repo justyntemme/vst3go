@@ -57,6 +57,12 @@ var (
 	components   = make(map[uintptr]*componentWrapper)
 	componentsMu sync.RWMutex
 	nextID       uintptr = 1
+	
+	// Initialization synchronization
+	initOnce    sync.Once
+	initDone    = make(chan struct{})
+	initialized bool
+	initMu      sync.RWMutex
 )
 
 // Global plugin instance
@@ -93,7 +99,15 @@ var globalConfig = Config{
 
 // Register sets the global plugin instance
 func Register(p Plugin) {
+	initMu.Lock()
 	globalPlugin = p
+	initMu.Unlock()
+	
+	// Signal that registration is complete
+	initOnce.Do(func() {
+		initialized = true
+		close(initDone)
+	})
 }
 
 // SetFactoryInfo sets the factory information
@@ -191,16 +205,65 @@ func (w *componentWrapper) notifyParamEndEdit(paramID uint32) {
 	C.componentHandler_endEdit((*C.Steinberg_Vst_IComponentHandler)(handler), C.Steinberg_Vst_ParamID(paramID))
 }
 
+//export GoIsInitialized
+func GoIsInitialized() C.int {
+	initMu.RLock()
+	defer initMu.RUnlock()
+	if initialized {
+		return 1
+	}
+	return 0
+}
+
+//export GoWaitForInitialization
+func GoWaitForInitialization() {
+	<-initDone
+}
+
 //export GoGetFactoryInfo
 func GoGetFactoryInfo(vendor, url, email *C.char, flags *C.int32_t) {
-	C.strcpy(vendor, C.CString(globalFactoryInfo.Vendor))
-	C.strcpy(url, C.CString(globalFactoryInfo.URL))
-	C.strcpy(email, C.CString(globalFactoryInfo.Email))
+	// Wait for initialization to complete
+	<-initDone
+	
+	// Safe string copy with bounds checking (buffers are 64, 256, 128 chars respectively)
+	vendorBytes := []byte(globalFactoryInfo.Vendor)
+	if len(vendorBytes) > 63 {
+		vendorBytes = vendorBytes[:63]
+	}
+	vendorBuf := (*[64]C.char)(unsafe.Pointer(vendor))
+	for i, b := range vendorBytes {
+		vendorBuf[i] = C.char(b)
+	}
+	vendorBuf[len(vendorBytes)] = 0
+
+	urlBytes := []byte(globalFactoryInfo.URL)
+	if len(urlBytes) > 255 {
+		urlBytes = urlBytes[:255]
+	}
+	urlBuf := (*[256]C.char)(unsafe.Pointer(url))
+	for i, b := range urlBytes {
+		urlBuf[i] = C.char(b)
+	}
+	urlBuf[len(urlBytes)] = 0
+
+	emailBytes := []byte(globalFactoryInfo.Email)
+	if len(emailBytes) > 127 {
+		emailBytes = emailBytes[:127]
+	}
+	emailBuf := (*[128]C.char)(unsafe.Pointer(email))
+	for i, b := range emailBytes {
+		emailBuf[i] = C.char(b)
+	}
+	emailBuf[len(emailBytes)] = 0
+
 	*flags = C.Steinberg_PFactoryInfo_FactoryFlags_kUnicode
 }
 
 //export GoCountClasses
 func GoCountClasses() C.int32_t {
+	// Wait for initialization to complete
+	<-initDone
+	
 	if globalPlugin == nil {
 		return 0
 	}
@@ -209,6 +272,9 @@ func GoCountClasses() C.int32_t {
 
 //export GoGetClassInfo
 func GoGetClassInfo(index C.int32_t, cid *C.char, cardinality *C.int32_t, category, name *C.char) {
+	// Wait for initialization to complete
+	<-initDone
+	
 	if globalPlugin == nil || index != 0 {
 		return
 	}
@@ -222,13 +288,35 @@ func GoGetClassInfo(index C.int32_t, cid *C.char, cardinality *C.int32_t, catego
 	// Set cardinality
 	*cardinality = C.Steinberg_PClassInfo_ClassCardinality_kManyInstances
 
-	// Set category and name
-	C.strcpy(category, C.CString("Audio Module Class"))
-	C.strcpy(name, C.CString(info.Name))
+	// Safe string copy for category (32 chars max)
+	categoryStr := "Audio Module Class"
+	categoryBytes := []byte(categoryStr)
+	if len(categoryBytes) > 31 {
+		categoryBytes = categoryBytes[:31]
+	}
+	categoryBuf := (*[32]C.char)(unsafe.Pointer(category))
+	for i, b := range categoryBytes {
+		categoryBuf[i] = C.char(b)
+	}
+	categoryBuf[len(categoryBytes)] = 0
+
+	// Safe string copy for name (64 chars max)
+	nameBytes := []byte(info.Name)
+	if len(nameBytes) > 63 {
+		nameBytes = nameBytes[:63]
+	}
+	nameBuf := (*[64]C.char)(unsafe.Pointer(name))
+	for i, b := range nameBytes {
+		nameBuf[i] = C.char(b)
+	}
+	nameBuf[len(nameBytes)] = 0
 }
 
 //export GoCreateInstance
 func GoCreateInstance(cid *C.char, iid *C.char) unsafe.Pointer {
+	// Wait for initialization to complete
+	<-initDone
+	
 	if globalPlugin == nil {
 		return nil
 	}

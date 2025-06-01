@@ -5,6 +5,10 @@
 
 // Go callback functions (will be implemented in Go with //export)
 
+// Initialization functions
+extern int GoIsInitialized();
+extern void GoWaitForInitialization();
+
 // Factory callbacks
 extern void GoGetFactoryInfo(char* vendor, char* url, char* email, int32_t* flags);
 extern int32_t GoCountClasses();
