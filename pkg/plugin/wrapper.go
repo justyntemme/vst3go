@@ -87,7 +87,7 @@ type Config struct {
 }
 
 var globalConfig = Config{
-	EnableBuffering: true, // Enabled by default for GC protection
+	EnableBuffering: true, // Re-enabled to test bypass
 	BufferChannels: 2,
 }
 
