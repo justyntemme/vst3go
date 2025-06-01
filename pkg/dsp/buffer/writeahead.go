@@ -2,6 +2,7 @@ package buffer
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"sync/atomic"
 	"time"
@@ -18,6 +19,10 @@ type WriteAheadBuffer struct {
 	latencySamples uint32
 	sampleRate     float64
 	channels       int
+	
+	// Timestamp enforcement - tracks total samples processed
+	totalSamplesWritten uint64
+	totalSamplesRead    uint64
 	
 	// Statistics for monitoring
 	underruns   uint64
@@ -57,6 +62,8 @@ func NewWriteAheadBuffer(sampleRate float64, channels int) *WriteAheadBuffer {
 		channels:       channels,
 		readPos:        0,
 		writePos:       uint64(latencySamples), // Start write position ahead
+		totalSamplesWritten: uint64(latencySamples), // Initialize with latency to enforce delay
+		totalSamplesRead:    0,
 	}
 	
 	return buf
@@ -99,8 +106,9 @@ func (buf *WriteAheadBuffer) Write(samples []float32) error {
 		writePos += uint64(copySize)
 	}
 	
-	// Update write position atomically
+	// Update write position atomically and track total samples
 	atomic.StoreUint64(&buf.writePos, writePos)
+	atomic.AddUint64(&buf.totalSamplesWritten, uint64(len(samples)))
 	
 	return nil
 }
@@ -108,6 +116,26 @@ func (buf *WriteAheadBuffer) Write(samples []float32) error {
 // Read retrieves samples from the buffer, enforcing the minimum latency
 func (buf *WriteAheadBuffer) Read(output []float32) int {
 	if len(output) == 0 {
+		return 0
+	}
+	
+	// Timestamp-based enforcement: ensure we only read samples that are old enough
+	totalWritten := atomic.LoadUint64(&buf.totalSamplesWritten)
+	totalRead := atomic.LoadUint64(&buf.totalSamplesRead)
+	
+	// Calculate maximum samples we can read while maintaining latency
+	maxReadable := uint64(0)
+	if totalWritten > uint64(buf.latencySamples) {
+		maxReadable = totalWritten - uint64(buf.latencySamples)
+	}
+	
+	// Strict enforcement: If we haven't written enough actual samples yet, limit reading
+	if totalRead >= maxReadable && totalWritten > uint64(buf.latencySamples) {
+		// We've caught up to the latency boundary, can't read more
+		for i := range output {
+			output[i] = 0
+		}
+		atomic.AddUint64(&buf.underruns, 1)
 		return 0
 	}
 	
@@ -121,6 +149,13 @@ func (buf *WriteAheadBuffer) Read(output []float32) int {
 	// Check available data
 	available := buf.availableData(readPos, writePos)
 	toRead := len(output)
+	
+	// Additional enforcement: limit reads based on timestamp
+	maxCanRead := int(maxReadable - totalRead)
+	if toRead > maxCanRead {
+		toRead = maxCanRead
+	}
+	
 	if available < uint32(toRead) {
 		toRead = int(available)
 		atomic.AddUint64(&buf.underruns, 1)
@@ -146,8 +181,9 @@ func (buf *WriteAheadBuffer) Read(output []float32) int {
 		readPos += uint64(copySize)
 	}
 	
-	// Update read position atomically
+	// Update read position atomically and track total samples read
 	atomic.StoreUint64(&buf.readPos, readPos)
+	atomic.AddUint64(&buf.totalSamplesRead, uint64(toRead))
 	
 	// Zero any unfilled portion
 	for i := toRead; i < len(output); i++ {
@@ -224,6 +260,32 @@ func (buf *WriteAheadBuffer) GetBufferUtilization() float32 {
 	return float32(available) / float32(buf.size)
 }
 
+// GetEnforcementStats returns timestamp-based enforcement statistics
+func (buf *WriteAheadBuffer) GetEnforcementStats() (samplesAhead uint64, enforcing bool) {
+	totalWritten := atomic.LoadUint64(&buf.totalSamplesWritten)
+	totalRead := atomic.LoadUint64(&buf.totalSamplesRead)
+	
+	if totalWritten > totalRead {
+		samplesAhead = totalWritten - totalRead
+	}
+	
+	// We're enforcing if the gap is at or below the latency threshold
+	enforcing = samplesAhead <= uint64(buf.latencySamples)
+	
+	return samplesAhead, enforcing
+}
+
+// DebugState returns internal state for debugging
+func (buf *WriteAheadBuffer) DebugState() string {
+	totalWritten := atomic.LoadUint64(&buf.totalSamplesWritten)
+	totalRead := atomic.LoadUint64(&buf.totalSamplesRead)
+	readPos := atomic.LoadUint64(&buf.readPos)
+	writePos := atomic.LoadUint64(&buf.writePos)
+	
+	return fmt.Sprintf("totalWritten=%d, totalRead=%d, writePos=%d, readPos=%d, latency=%d",
+		totalWritten, totalRead, writePos, readPos, buf.latencySamples)
+}
+
 // Reset clears the buffer and resets positions
 func (buf *WriteAheadBuffer) Reset() {
 	// Clear buffer
@@ -234,6 +296,10 @@ func (buf *WriteAheadBuffer) Reset() {
 	// Reset positions with write ahead
 	atomic.StoreUint64(&buf.readPos, 0)
 	atomic.StoreUint64(&buf.writePos, uint64(buf.latencySamples))
+	
+	// Reset timestamp tracking
+	atomic.StoreUint64(&buf.totalSamplesWritten, uint64(buf.latencySamples))
+	atomic.StoreUint64(&buf.totalSamplesRead, 0)
 	
 	// Reset statistics
 	atomic.StoreUint64(&buf.underruns, 0)

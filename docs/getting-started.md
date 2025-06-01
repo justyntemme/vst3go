@@ -175,6 +175,12 @@ func init() {
         Email:  "support@example.com",
     })
     
+    // Note: By default, VST3Go enables GC protection buffering (50ms latency)
+    // To disable for zero-latency operation (at risk of GC glitches):
+    // vst3plugin.SetConfig(vst3plugin.Config{
+    //     EnableBuffering: false,
+    // })
+    
     vst3plugin.Register(&SimpleGainPlugin{})
 }
 
@@ -392,6 +398,43 @@ func TestNoAllocations(t *testing.T) {
     }
 }
 ```
+
+## GC-Protected Audio Processing
+
+VST3Go includes automatic protection against Go's garbage collection pauses through write-ahead buffering:
+
+### How It Works
+- **50ms write-ahead buffer** ensures continuous audio even during 20ms GC pauses
+- **Enabled by default** for all plugins
+- **Transparent to your code** - no changes needed to your processor
+
+### Configuring GC Protection
+
+```go
+func init() {
+    // Disable buffering for zero-latency operation
+    // WARNING: May cause audio glitches during GC pauses
+    vst3plugin.SetConfig(vst3plugin.Config{
+        EnableBuffering: false,
+    })
+    
+    // Or configure for multi-channel processing
+    vst3plugin.SetConfig(vst3plugin.Config{
+        EnableBuffering: true,
+        BufferChannels: 8, // For 8-channel plugins
+    })
+    
+    vst3plugin.Register(&MyPlugin{})
+}
+```
+
+### When to Disable Buffering
+Only disable if:
+- Your plugin requires absolute zero latency (e.g., live monitoring)
+- You've carefully tuned GC to avoid pauses
+- You're willing to accept occasional glitches
+
+Most plugins should keep buffering enabled for reliable, glitch-free operation.
 
 ## Next Steps
 

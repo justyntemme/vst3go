@@ -75,6 +75,22 @@ var globalFactoryInfo = FactoryInfo{
 	Email:  "info@vst3go.dev",
 }
 
+// Configuration for plugin behavior
+type Config struct {
+	// EnableBuffering wraps processors with BufferedProcessor for GC protection
+	// This adds 50ms of latency but protects against audio glitches during GC pauses
+	EnableBuffering bool
+	
+	// BufferChannels specifies the number of channels to buffer (if EnableBuffering is true)
+	// Defaults to 2 (stereo) if not specified
+	BufferChannels int
+}
+
+var globalConfig = Config{
+	EnableBuffering: true, // Enabled by default for GC protection
+	BufferChannels: 2,
+}
+
 // Register sets the global plugin instance
 func Register(p Plugin) {
 	globalPlugin = p
@@ -83,6 +99,11 @@ func Register(p Plugin) {
 // SetFactoryInfo sets the factory information
 func SetFactoryInfo(info FactoryInfo) {
 	globalFactoryInfo = info
+}
+
+// SetConfig sets the global plugin configuration
+func SetConfig(cfg Config) {
+	globalConfig = cfg
 }
 
 // recoverPanic is a helper to recover from panics in callbacks
@@ -226,6 +247,15 @@ func GoCreateInstance(cid *C.char, iid *C.char) unsafe.Pointer {
 	processor := globalPlugin.CreateProcessor()
 	if processor == nil {
 		return nil
+	}
+	
+	// Optionally wrap with BufferedProcessor for GC protection
+	if globalConfig.EnableBuffering {
+		channels := globalConfig.BufferChannels
+		if channels <= 0 {
+			channels = 2 // Default to stereo
+		}
+		processor = NewBufferedProcessor(processor, channels)
 	}
 
 	// Wrap in component implementation
