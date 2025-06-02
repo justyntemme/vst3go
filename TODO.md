@@ -131,25 +131,25 @@ All examples build successfully and pass VST3 validation tests.
 - [x] Smoothing for square wave
 - [x] Stereo phase control
 
-3. **Reverb Algorithms**
-   ```go
-   // pkg/dsp/reverb/
-   - Schroeder reverb
-   - Freeverb implementation
-   - FDN (Feedback Delay Network) reverb
-   - Early reflections processor
-   - Convolution reverb support
-   ```
+**3. Reverb Algorithms** ✅ DONE
+   - [x] Schroeder reverb (schroeder.go)
+   - [x] Freeverb implementation (freeverb.go)
+   - [x] FDN (Feedback Delay Network) reverb (fdn.go)
+   - [x] Comprehensive tests for all reverb types
+   - [ ] Early reflections processor (optional enhancement)
+   - [ ] Convolution reverb support (optional enhancement)
 
-4. **Distortion & Saturation**
-   ```go
-   // pkg/dsp/distortion/
-   - Waveshaping with multiple curves
-   - Tube saturation emulation
-   - Tape saturation emulation
-   - Bit crushing and sample rate reduction
-   - Asymmetric clipping
-   ```
+**4. Distortion & Saturation** ✅ DONE
+   - [x] Waveshaping with multiple curves (waveshaper.go)
+     - Hard clip, soft clip, saturate, foldback, asymmetric, sine, exponential
+   - [x] Tube saturation emulation (tube.go)
+     - Warmth, harmonics, bias, and hysteresis modeling
+   - [x] Tape saturation emulation (tape.go)
+     - Compression, flutter, pre/de-emphasis
+   - [x] Bit crushing and sample rate reduction (bitcrusher.go)
+     - Bit reduction, sample rate decimation, anti-aliasing, dithering
+   - [x] Comprehensive tests for all distortion types
+   - [x] MultiDistortion example plugin showcasing all types
 
 5. **Analysis Tools**
    ```go

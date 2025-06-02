@@ -32,7 +32,7 @@ DEBUG_LDFLAGS := -shared -g
 all: gain
 
 # Build all example plugins
-all-examples: gain delay filter compressor gate
+all-examples: gain delay filter compressor gate distortion tubedrive tapemachine lofi
 
 # Build gain example
 gain: PLUGIN_NAME := SimpleGain
@@ -100,6 +100,54 @@ $(BUILD_DIR)/StudioGate.$(SO_EXT): examples/gate/main.go $(BRIDGE_DIR)/bridge.c 
 		-o $@ \
 		./examples/gate
 
+# Build distortion example
+distortion: PLUGIN_NAME := HarmonicDistortion
+distortion: $(BUILD_DIR)/HarmonicDistortion.$(SO_EXT)
+
+# Build HarmonicDistortion plugin as a single shared library
+$(BUILD_DIR)/HarmonicDistortion.$(SO_EXT): examples/distortion/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building HarmonicDistortion VST3 plugin as single library"
+	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
+		-o $@ \
+		./examples/distortion
+
+# Build tubedrive example
+tubedrive: PLUGIN_NAME := TubeDrive
+tubedrive: $(BUILD_DIR)/TubeDrive.$(SO_EXT)
+
+# Build TubeDrive plugin as a single shared library
+$(BUILD_DIR)/TubeDrive.$(SO_EXT): examples/tubedrive/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building TubeDrive VST3 plugin as single library"
+	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
+		-o $@ \
+		./examples/tubedrive
+
+# Build tapemachine example
+tapemachine: PLUGIN_NAME := TapeMachine
+tapemachine: $(BUILD_DIR)/TapeMachine.$(SO_EXT)
+
+# Build TapeMachine plugin as a single shared library
+$(BUILD_DIR)/TapeMachine.$(SO_EXT): examples/tapemachine/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building TapeMachine VST3 plugin as single library"
+	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
+		-o $@ \
+		./examples/tapemachine
+
+# Build lofi example
+lofi: PLUGIN_NAME := LoFiProcessor
+lofi: $(BUILD_DIR)/LoFiProcessor.$(SO_EXT)
+
+# Build LoFiProcessor plugin as a single shared library
+$(BUILD_DIR)/LoFiProcessor.$(SO_EXT): examples/lofi/main.go $(BRIDGE_DIR)/bridge.c $(BRIDGE_DIR)/component.c
+	@mkdir -p $(BUILD_DIR)
+	@echo "Building LoFiProcessor VST3 plugin as single library"
+	CGO_CFLAGS="$(CFLAGS)" CGO_LDFLAGS="$(LDFLAGS)" go build -buildmode=c-shared \
+		-o $@ \
+		./examples/lofi
+
 # Create VST3 bundle
 bundle: $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT)
 	@echo "Creating VST3 bundle for $(PLUGIN_NAME)"
@@ -153,6 +201,38 @@ install: all-examples
 	@rm -rf ~/.vst3/StudioGate.vst3
 	@cp -r $(BUILD_DIR)/StudioGate.vst3 ~/.vst3/
 	@echo "Installed: ~/.vst3/StudioGate.vst3"
+	@echo "Creating and installing HarmonicDistortion.vst3 bundle"
+	@rm -rf $(BUILD_DIR)/HarmonicDistortion.vst3
+	@mkdir -p $(BUILD_DIR)/HarmonicDistortion.vst3/Contents/$(VST3_ARCH)
+	@cp $(BUILD_DIR)/HarmonicDistortion.$(SO_EXT) $(BUILD_DIR)/HarmonicDistortion.vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/HarmonicDistortion.vst3/Contents/$(VST3_ARCH)/HarmonicDistortion.$(SO_EXT)
+	@rm -rf ~/.vst3/HarmonicDistortion.vst3
+	@cp -r $(BUILD_DIR)/HarmonicDistortion.vst3 ~/.vst3/
+	@echo "Installed: ~/.vst3/HarmonicDistortion.vst3"
+	@echo "Creating and installing TubeDrive.vst3 bundle"
+	@rm -rf $(BUILD_DIR)/TubeDrive.vst3
+	@mkdir -p $(BUILD_DIR)/TubeDrive.vst3/Contents/$(VST3_ARCH)
+	@cp $(BUILD_DIR)/TubeDrive.$(SO_EXT) $(BUILD_DIR)/TubeDrive.vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/TubeDrive.vst3/Contents/$(VST3_ARCH)/TubeDrive.$(SO_EXT)
+	@rm -rf ~/.vst3/TubeDrive.vst3
+	@cp -r $(BUILD_DIR)/TubeDrive.vst3 ~/.vst3/
+	@echo "Installed: ~/.vst3/TubeDrive.vst3"
+	@echo "Creating and installing TapeMachine.vst3 bundle"
+	@rm -rf $(BUILD_DIR)/TapeMachine.vst3
+	@mkdir -p $(BUILD_DIR)/TapeMachine.vst3/Contents/$(VST3_ARCH)
+	@cp $(BUILD_DIR)/TapeMachine.$(SO_EXT) $(BUILD_DIR)/TapeMachine.vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/TapeMachine.vst3/Contents/$(VST3_ARCH)/TapeMachine.$(SO_EXT)
+	@rm -rf ~/.vst3/TapeMachine.vst3
+	@cp -r $(BUILD_DIR)/TapeMachine.vst3 ~/.vst3/
+	@echo "Installed: ~/.vst3/TapeMachine.vst3"
+	@echo "Creating and installing LoFiProcessor.vst3 bundle"
+	@rm -rf $(BUILD_DIR)/LoFiProcessor.vst3
+	@mkdir -p $(BUILD_DIR)/LoFiProcessor.vst3/Contents/$(VST3_ARCH)
+	@cp $(BUILD_DIR)/LoFiProcessor.$(SO_EXT) $(BUILD_DIR)/LoFiProcessor.vst3/Contents/$(VST3_ARCH)/
+	@chmod +x $(BUILD_DIR)/LoFiProcessor.vst3/Contents/$(VST3_ARCH)/LoFiProcessor.$(SO_EXT)
+	@rm -rf ~/.vst3/LoFiProcessor.vst3
+	@cp -r $(BUILD_DIR)/LoFiProcessor.vst3 ~/.vst3/
+	@echo "Installed: ~/.vst3/LoFiProcessor.vst3"
 	@echo "All example plugins installed successfully"
 
 # Alias for install
@@ -244,6 +324,10 @@ help:
 	@echo "  make filter       - Build the MultiModeFilter example plugin"
 	@echo "  make compressor   - Build the MasterCompressor example plugin"
 	@echo "  make gate         - Build the StudioGate example plugin"
+	@echo "  make distortion   - Build the HarmonicDistortion example plugin"
+	@echo "  make tubedrive    - Build the TubeDrive example plugin"
+	@echo "  make tapemachine  - Build the TapeMachine example plugin"
+	@echo "  make lofi         - Build the LoFiProcessor example plugin"
 	@echo "  make all-examples - Build all example plugins"
 	@echo "  make bundle       - Create VST3 bundle for current plugin"
 	@echo "  make install      - Build and install all example plugins to ~/.vst3"
@@ -269,6 +353,6 @@ help:
 	@echo ""
 	@echo "  make help         - Show this help message"
 
-.PHONY: all all-examples gain delay filter compressor gate bundle install install-all clean help \
+.PHONY: all all-examples gain delay filter compressor gate distortion tubedrive tapemachine lofi bundle install install-all clean help \
 	lint fmt fmt-check test test-go test-validate test-quick test-extensive \
 	test-local test-bundle test-list test-selftest test-all
