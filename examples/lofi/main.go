@@ -22,7 +22,7 @@ type LoFiPlugin struct{}
 func (l *LoFiPlugin) GetInfo() plugin.Info {
 	return plugin.Info{
 		ID:       "com.vst3go.examples.lofi",
-		Name:     "LoFi",
+		Name:     "LoFiProcessor",
 		Version:  "1.0.0",
 		Vendor:   "VST3Go Examples",
 		Category: "Fx",
