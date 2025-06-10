@@ -32,17 +32,20 @@ VST3Go provides a Go framework for building VST3 audio plugins. We follow a "mov
 - `pkg/framework/bus` - Bus configuration management
 - `pkg/framework/state` - State persistence with custom data support
 
-**DSP Packages**
+**DSP Packages** (Implemented but not utilized in examples)
 - `pkg/dsp/buffer` - Common buffer operations
 - `pkg/dsp/filter` - Biquad and State Variable filters
 - `pkg/dsp/oscillator` - Basic and band-limited oscillators
 - `pkg/dsp/envelope` - ADSR, AR, and envelope followers
 - `pkg/dsp/delay` - Various delay line implementations
+- `pkg/dsp/dynamics` - Compressor, Limiter, Gate, Expander (fully implemented)
+- `pkg/dsp/modulation` - LFO, Chorus, Flanger, Phaser, Ring Modulator, Tremolo (fully implemented)
+- `pkg/dsp/reverb` - Schroeder, Freeverb, FDN reverb algorithms (fully implemented)
 
-**Working Examples**
-- **SimpleGain** - Basic gain control
-- **SimpleDelay** - Delay effect with feedback
-- **MultiModeFilter** - State variable filter with morphing
+**Working Examples** (Simple implementations, not using DSP library)
+- **gain** - Basic gain control (doesn't use DSP library)
+- **delay** - Delay effect with feedback (implements own delay line instead of using pkg/dsp/delay)
+- **filter** - State variable filter with morphing
 
 All examples build successfully and pass VST3 validation tests.
 
@@ -51,6 +54,8 @@ All examples build successfully and pass VST3 validation tests.
 ### Phase 1: DSP Library Enhancement 🚧
 
 **Goal**: Provide comprehensive DSP building blocks for plugin developers
+
+**IMPORTANT NOTE**: The DSP library components marked as "✅ DONE" below are fully implemented with comprehensive functionality. However, they are NOT currently being used in any example plugins. The existing examples implement their own simplified versions instead of leveraging the DSP library. New example plugins need to be created to showcase the DSP library capabilities.
 
 #### Current Task Breakdown:
 
@@ -149,7 +154,7 @@ All examples build successfully and pass VST3 validation tests.
    - [x] Bit crushing and sample rate reduction (bitcrusher.go)
      - Bit reduction, sample rate decimation, anti-aliasing, dithering
    - [x] Comprehensive tests for all distortion types
-   - [x] MultiDistortion example plugin showcasing all types
+   - [ ] MultiDistortion example plugin showcasing all types
 
 5. **Analysis Tools**
    ```go
@@ -172,15 +177,15 @@ All examples build successfully and pass VST3 validation tests.
    - Dithering algorithms
    ```
 
-### Phase 2: MIDI & Event Support ✅ DONE
+### Phase 2: MIDI & Event Support 🚧 TODO
 
 **Goal**: Enable instrument plugin development
 
-1. **Core MIDI Infrastructure** ✅ DONE
+1. **Core MIDI Infrastructure** 🚧 TODO
    ```go
    // pkg/midi/
-   - MIDI event types (Note On/Off, CC, Pitch Bend, etc.) ✅
-   - MIDI event queue with sample-accurate timing ✅
+   - MIDI event types (Note On/Off, CC, Pitch Bend, etc.) 🚧
+   - MIDI event queue with sample-accurate timing 🚧
    - MIDI learn system 🔜 (future enhancement)
    - MPE (MIDI Polyphonic Expression) support 🔜 (future enhancement)
    ```
@@ -353,8 +358,8 @@ func (s *SimpleSynth) ProcessAudio(ctx *process.Context) {
 - 🔒 Cross-platform support (Linux only for now, others deferred)
 - ✅ Parameter automation working
 - ✅ State persistence working
-- 🚧 Comprehensive DSP library
-- ✅ MIDI support for instruments
+- 🚧 Comprehensive DSP library (missing distortion effects)
+- 🚧 MIDI support for instruments
 - 🚧 Developer tools and templates
 - 📅 Documentation complete
 - 📅 15+ example plugins
@@ -496,6 +501,15 @@ func (s *SimpleSynth) ProcessAudio(ctx *process.Context) {
 - Add presets where appropriate
 - Include usage comments
 - Ensure VST3 validation passes
+
+### Existing Examples Refactoring 🚧 TODO
+The current example plugins (gain, delay, filter) implement their own simplified versions of DSP functionality instead of using the comprehensive DSP library. These should be refactored to:
+1. **delay** - Should use `pkg/dsp/delay` package instead of implementing its own delay line
+2. **filter** - Should verify if it uses `pkg/dsp/filter` or implements its own
+3. Create new examples that showcase the DSP library features:
+   - Dynamics examples using `pkg/dsp/dynamics`
+   - Modulation examples using `pkg/dsp/modulation` 
+   - Reverb examples using `pkg/dsp/reverb`
 
 ### GUI Support 🔒 DEFERRED
 
