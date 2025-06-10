@@ -49,9 +49,10 @@ Critical constraints for maintaining architectural integrity in development.
 
 ### Build System
 - Use `make install` exclusively (never CMake)
-- Test with `validator`
-- All example plugins should be maintained and tested
-
+# !important 
+- Test with `validator` -- when using test, be sure to understand that if it's not a 32 bit specific issue (which then we should fix with preprocessing directives) that validator does not have 64bit support when it comes to testing audio streams, so some bugs may only be found in testing 32 bit but actually impacts both versions of the plugin. use the 32 bit tests to further test the shared code logic between the to, letting it help guide our 64 bit programming that is shared between the two. 
+- All example plugins should be maintained and tested                                                                                                                                                                                                                                                                  c
+                                                                                                                                                                                                                                                                                                                      
 ### Code Quality
 - No placeholder implementations
 - Complete error handling (no silent failures)
