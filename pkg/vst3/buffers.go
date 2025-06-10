@@ -35,12 +35,12 @@ func NewAudioBuffer(cBuffers *C.struct_Steinberg_Vst_AudioBusBuffers, numSamples
 
 	if channelBuffers32 != nil {
 		// Convert the double pointer to a slice of pointers
-		channelPtrs := (*[1 << 30]*C.Steinberg_Vst_Sample32)(unsafe.Pointer(channelBuffers32))[:numChannels:numChannels]
+		channelPtrs := (*[MaxArraySize]*C.Steinberg_Vst_Sample32)(unsafe.Pointer(channelBuffers32))[:numChannels:numChannels]
 
 		for i := 0; i < numChannels; i++ {
 			if channelPtrs[i] != nil {
 				// Create a Go slice from the C buffer without copying
-				channelBuffers[i] = (*[1 << 30]float32)(unsafe.Pointer(channelPtrs[i]))[:numSamples:numSamples]
+				channelBuffers[i] = (*[MaxArraySize]float32)(unsafe.Pointer(channelPtrs[i]))[:numSamples:numSamples]
 			}
 		}
 	}
@@ -186,7 +186,7 @@ func NewProcessDataWrapper(dataPtr unsafe.Pointer) *ProcessDataWrapper {
 	if data.numInputs > 0 && data.inputs != nil {
 		numInputs := int(data.numInputs)
 		wrapper.inputBuffers = make([]*AudioBuffer, numInputs)
-		inputPtrs := (*[1 << 30]C.struct_Steinberg_Vst_AudioBusBuffers)(unsafe.Pointer(data.inputs))[:numInputs:numInputs]
+		inputPtrs := (*[MaxArraySize]C.struct_Steinberg_Vst_AudioBusBuffers)(unsafe.Pointer(data.inputs))[:numInputs:numInputs]
 
 		for i := 0; i < numInputs; i++ {
 			wrapper.inputBuffers[i] = NewAudioBuffer(&inputPtrs[i], int32(data.numSamples))
@@ -197,7 +197,7 @@ func NewProcessDataWrapper(dataPtr unsafe.Pointer) *ProcessDataWrapper {
 	if data.numOutputs > 0 && data.outputs != nil {
 		numOutputs := int(data.numOutputs)
 		wrapper.outputBuffers = make([]*AudioBuffer, numOutputs)
-		outputPtrs := (*[1 << 30]C.struct_Steinberg_Vst_AudioBusBuffers)(unsafe.Pointer(data.outputs))[:numOutputs:numOutputs]
+		outputPtrs := (*[MaxArraySize]C.struct_Steinberg_Vst_AudioBusBuffers)(unsafe.Pointer(data.outputs))[:numOutputs:numOutputs]
 
 		for i := 0; i < numOutputs; i++ {
 			wrapper.outputBuffers[i] = NewAudioBuffer(&outputPtrs[i], int32(data.numSamples))

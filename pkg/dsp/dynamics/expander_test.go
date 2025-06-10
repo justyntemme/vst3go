@@ -35,7 +35,7 @@ func TestExpanderGainComputation(t *testing.T) {
 	e := NewExpander(48000.0)
 	e.SetThreshold(-30.0)
 	e.SetRatio(3.0) // 3:1 expansion
-	e.SetKnee(0.0)   // Hard knee
+	e.SetKnee(0.0)  // Hard knee
 
 	testCases := []struct {
 		inputDB      float64
@@ -80,8 +80,8 @@ func TestExpanderProcessing(t *testing.T) {
 	e := NewExpander(sampleRate)
 	e.SetThreshold(-30.0)
 	e.SetRatio(2.0)
-	e.SetAttack(0.0)   // Instant attack
-	e.SetRelease(0.0)  // Instant release
+	e.SetAttack(0.0)  // Instant attack
+	e.SetRelease(0.0) // Instant release
 
 	// Test signal below threshold
 	quietSignal := float32(0.01) // ~-40 dB
@@ -105,14 +105,14 @@ func TestExpanderProcessing(t *testing.T) {
 func TestExpanderRange(t *testing.T) {
 	e := NewExpander(48000.0)
 	e.SetThreshold(-20.0)
-	e.SetRatio(4.0)      // High ratio
-	e.SetRange(-20.0)    // Limit expansion to 20dB
+	e.SetRatio(4.0)   // High ratio
+	e.SetRange(-20.0) // Limit expansion to 20dB
 	e.SetAttack(0.0)
 	e.SetRelease(0.0)
 
 	// Very quiet signal that would normally get more than 20dB expansion
 	veryQuiet := float32(0.001) // ~-60 dB
-	
+
 	// Process multiple times to ensure steady state
 	var output float32
 	for i := 0; i < 10; i++ {
@@ -121,7 +121,7 @@ func TestExpanderRange(t *testing.T) {
 
 	// Calculate actual expansion
 	expansionDB := 20.0 * math.Log10(float64(output/veryQuiet))
-	
+
 	// Should be limited to -20dB
 	if expansionDB < -21.0 || expansionDB > -19.0 {
 		t.Errorf("Range limiting not working: got %f dB expansion, expected ~-20 dB", expansionDB)
@@ -135,8 +135,8 @@ func TestExpanderStereoLinking(t *testing.T) {
 	e.SetAttack(0.0)
 
 	// Left quiet, right loud
-	inputL := []float32{0.01, 0.01, 0.01}  // Below threshold
-	inputR := []float32{0.1, 0.1, 0.1}     // Above threshold
+	inputL := []float32{0.01, 0.01, 0.01} // Below threshold
+	inputR := []float32{0.1, 0.1, 0.1}    // Above threshold
 	outputL := make([]float32, 3)
 	outputR := make([]float32, 3)
 
@@ -164,7 +164,7 @@ func TestExpanderAttackRelease(t *testing.T) {
 	// Start with quiet signal (will be expanded)
 	quietSignal := float32(0.01)
 	attackSamples := int(0.010 * sampleRate)
-	
+
 	// Process through attack (expansion increasing)
 	var lastGR float64 = 0
 	for i := 0; i < attackSamples; i++ {
@@ -179,7 +179,7 @@ func TestExpanderAttackRelease(t *testing.T) {
 	// Switch to loud signal
 	loudSignal := float32(0.2)
 	releaseSamples := int(0.020 * sampleRate)
-	
+
 	// Process through release (returning to unity gain)
 	for i := 0; i < releaseSamples; i++ {
 		_ = e.Process(loudSignal)
@@ -194,11 +194,11 @@ func TestExpanderAttackRelease(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		_ = e.Process(loudSignal)
 	}
-	
+
 	// Debug: check current gain
-	t.Logf("After release: gain reduction = %f dB, current gain = %f", 
+	t.Logf("After release: gain reduction = %f dB, current gain = %f",
 		e.GetGainReduction(), e.currentGain)
-	
+
 	// Should be close to 0 dB after release (allow some tolerance)
 	if math.Abs(e.GetGainReduction()) > 2.0 {
 		t.Errorf("Gain reduction not returned close to unity: %f dB", e.GetGainReduction())
@@ -207,18 +207,18 @@ func TestExpanderAttackRelease(t *testing.T) {
 
 func TestExpanderReset(t *testing.T) {
 	e := NewExpander(48000.0)
-	
+
 	// Process some signal
 	e.Process(0.001) // Quiet signal to trigger expansion
-	
+
 	// Reset
 	e.Reset()
-	
+
 	// Check state
 	if e.GetGainReduction() != 0 {
 		t.Errorf("Gain reduction not reset: %f", e.GetGainReduction())
 	}
-	
+
 	if e.currentGain != 1.0 {
 		t.Errorf("Current gain not reset: %f", e.currentGain)
 	}
@@ -228,7 +228,7 @@ func TestExpanderReset(t *testing.T) {
 func BenchmarkExpander(b *testing.B) {
 	e := NewExpander(48000.0)
 	input := float32(0.05)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = e.Process(input)
@@ -241,13 +241,13 @@ func BenchmarkExpanderStereo(b *testing.B) {
 	inputR := make([]float32, 1024)
 	outputL := make([]float32, 1024)
 	outputR := make([]float32, 1024)
-	
+
 	// Fill with test signal
 	for i := range inputL {
 		inputL[i] = float32(0.1 * math.Sin(float64(i)*0.1))
 		inputR[i] = float32(0.1 * math.Cos(float64(i)*0.1))
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		e.ProcessStereo(inputL, inputR, outputL, outputR)

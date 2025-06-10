@@ -154,7 +154,7 @@ All examples build successfully and pass VST3 validation tests.
    - [x] Bit crushing and sample rate reduction (bitcrusher.go)
      - Bit reduction, sample rate decimation, anti-aliasing, dithering
    - [x] Comprehensive tests for all distortion types
-   - [ ] MultiDistortion example plugin showcasing all types
+   - [x] MultiDistortion example plugin showcasing all types (passes VST3 validation!)
 
 5. **Analysis Tools**
    ```go

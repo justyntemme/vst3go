@@ -134,7 +134,7 @@ func TestTremoloHarmonicMode(t *testing.T) {
 	for i := 0; i < samplesPerCycle; i++ {
 		outputs[i] = trem.Process(input)
 	}
-	
+
 	// Find min/max values
 	minVal := outputs[0]
 	maxVal := outputs[0]
@@ -155,7 +155,7 @@ func TestTremoloHarmonicMode(t *testing.T) {
 			lowCount++
 		}
 	}
-	
+
 	// Also count local minima to verify frequency doubling
 	minimaCount := 0
 	for i := 1; i < len(outputs)-1; i++ {
@@ -163,18 +163,18 @@ func TestTremoloHarmonicMode(t *testing.T) {
 			minimaCount++
 		}
 	}
-	
+
 	// Log some outputs for debugging
 	t.Logf("First 10 outputs: %v", outputs[:10])
 	t.Logf("Min: %f, Max: %f", minVal, maxVal)
 	t.Logf("Samples: %d, Low count: %d, Minima count: %d", samplesPerCycle, lowCount, minimaCount)
-	
+
 	// Harmonic mode should create two minima per LFO cycle (frequency doubling)
 	// We're processing one LFO cycle, so we expect 2 minima
 	if minimaCount < 1 || minimaCount > 3 {
 		t.Errorf("Harmonic mode not creating frequency doubling: %d minima found (expected ~2)", minimaCount)
 	}
-	
+
 	// Should reach near-zero at the minima with full depth
 	if minVal > 0.05 {
 		t.Errorf("Harmonic mode not reaching near-zero: min=%f", minVal)
@@ -208,7 +208,7 @@ func TestTremoloStereo(t *testing.T) {
 	if maxDiff < 0.5 {
 		t.Errorf("Stereo phase not creating enough difference: max diff=%f", maxDiff)
 	}
-	
+
 	// Also test that without stereo mode, outputs are identical
 	trem.SetStereo(false)
 	outputL, outputR := trem.ProcessStereo(inputL, inputR)
@@ -295,7 +295,7 @@ func TestTremoloRate(t *testing.T) {
 
 	for i := 0; i < samples; i++ {
 		output := trem.Process(input)
-		
+
 		// Count transitions from low to high
 		if output < 0.1 {
 			wasLow = true

@@ -17,7 +17,7 @@ type Gate struct {
 	hold       float64 // Hold time in seconds
 	release    float64 // Release time in seconds
 	range_     float64 // Range in dB (max attenuation when closed)
-	
+
 	// Side-chain filter (optional)
 	hpfEnabled   bool
 	hpfFrequency float64
@@ -27,11 +27,11 @@ type Gate struct {
 	detector *envelope.Detector
 
 	// Gate state machine
-	state        gateState
-	holdCounter  int
-	holdSamples  int
-	currentGain  float64
-	targetGain   float64
+	state       gateState
+	holdCounter int
+	holdSamples int
+	currentGain float64
+	targetGain  float64
 
 	// Smooth gain transitions
 	attackCoeff  float64
@@ -57,15 +57,15 @@ const (
 // NewGate creates a new noise gate
 func NewGate(sampleRate float64) *Gate {
 	g := &Gate{
-		sampleRate:   sampleRate,
-		threshold:    -40.0,  // -40 dB default
-		hysteresis:   5.0,    // 5 dB hysteresis
-		attack:       0.001,  // 1ms attack
-		hold:         0.010,  // 10ms hold
-		release:      0.100,  // 100ms release
-		range_:       -80.0,  // -80 dB range (practically mute)
-		state:        gateStateClosed,
-		detector:     envelope.NewDetector(sampleRate, envelope.ModePeak),
+		sampleRate: sampleRate,
+		threshold:  -40.0, // -40 dB default
+		hysteresis: 5.0,   // 5 dB hysteresis
+		attack:     0.001, // 1ms attack
+		hold:       0.010, // 10ms hold
+		release:    0.100, // 100ms release
+		range_:     -80.0, // -80 dB range (practically mute)
+		state:      gateStateClosed,
+		detector:   envelope.NewDetector(sampleRate, envelope.ModePeak),
 	}
 
 	// Initialize gain to closed state
@@ -75,8 +75,8 @@ func NewGate(sampleRate float64) *Gate {
 
 	// Configure detector
 	g.detector.SetType(envelope.TypeLinear)
-	g.detector.SetAttack(0.0001)  // Very fast for gate detection
-	g.detector.SetRelease(0.010)  // 10ms release
+	g.detector.SetAttack(0.0001) // Very fast for gate detection
+	g.detector.SetRelease(0.010) // 10ms release
 
 	// Update coefficients
 	g.updateCoefficients()
@@ -116,7 +116,7 @@ func (g *Gate) SetRelease(seconds float64) {
 // SetRange sets the gate range (max attenuation) in dB
 func (g *Gate) SetRange(dB float64) {
 	g.range_ = math.Min(0.0, dB) // Can't be positive
-	
+
 	// Update current gain if gate is closed
 	if g.state == gateStateClosed {
 		g.currentGain = math.Pow(10.0, g.range_/20.0)
@@ -158,13 +158,13 @@ func (g *Gate) applySidechainFilter(input float32) float32 {
 	// H(z) = (1 - z^-1) / (1 - a*z^-1)
 	// Where a = exp(-2*pi*fc/fs)
 	a := math.Exp(-2.0 * math.Pi * g.hpfFrequency / g.sampleRate)
-	
+
 	// Difference equation: y[n] = (1+a)/2 * (x[n] - x[n-1]) + a*y[n-1]
-	output := float32((1+a)/2) * (input - g.lastInput) + float32(a)*float32(g.hpfState)
-	
+	output := float32((1+a)/2)*(input-g.lastInput) + float32(a)*float32(g.hpfState)
+
 	g.lastInput = input
 	g.hpfState = float64(output)
-	
+
 	return output
 }
 
@@ -172,10 +172,10 @@ func (g *Gate) applySidechainFilter(input float32) float32 {
 func (g *Gate) Process(input float32) float32 {
 	// Apply sidechain filter if enabled
 	detection := g.applySidechainFilter(input)
-	
+
 	// Get envelope - for gate, we want fast detection
 	envelope := float32(math.Abs(float64(detection)))
-	
+
 	// Convert to dB
 	inputDB := float64(-96.0)
 	if envelope > 0 {
@@ -284,13 +284,13 @@ func (g *Gate) ProcessStereo(inputL, inputR, outputL, outputR []float32) {
 	for i := range inputL {
 		// Use maximum of both channels for detection
 		maxInput := float32(math.Max(math.Abs(float64(inputL[i])), math.Abs(float64(inputR[i]))))
-		
+
 		// Apply sidechain filter
 		detection := g.applySidechainFilter(maxInput)
-		
+
 		// Get envelope - for gate, we want fast detection
 		envelope := float32(math.Abs(float64(detection)))
-		
+
 		// Convert to dB
 		inputDB := float64(-96.0)
 		if envelope > 0 {

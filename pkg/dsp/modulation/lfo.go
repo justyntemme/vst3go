@@ -24,21 +24,21 @@ const (
 // LFO implements a Low Frequency Oscillator for modulation
 type LFO struct {
 	sampleRate float64
-	
+
 	// Parameters
-	frequency  float64   // Frequency in Hz
-	phase      float64   // Current phase (0-1)
-	waveform   Waveform  // Waveform type
-	depth      float64   // Modulation depth (0-1)
-	offset     float64   // DC offset (-1 to 1)
-	
+	frequency float64  // Frequency in Hz
+	phase     float64  // Current phase (0-1)
+	waveform  Waveform // Waveform type
+	depth     float64  // Modulation depth (0-1)
+	offset    float64  // DC offset (-1 to 1)
+
 	// Sync
 	syncEnabled bool
 	syncPhase   float64 // Phase to reset to on sync
-	
+
 	// Phase increment
 	phaseInc float64
-	
+
 	// For random waveform
 	currentRandom float64
 	randomCounter int
@@ -55,7 +55,7 @@ func NewLFO(sampleRate float64) *LFO {
 		offset:     0.0,
 		phase:      0.0,
 	}
-	
+
 	lfo.updatePhaseIncrement()
 	return lfo
 }
@@ -125,24 +125,24 @@ func (l *LFO) generateWaveform() float64 {
 	switch l.waveform {
 	case WaveformSine:
 		return math.Sin(2.0 * math.Pi * l.phase)
-		
+
 	case WaveformTriangle:
 		// Triangle wave: linear from -1 to 1 and back
 		if l.phase < 0.5 {
 			return 4.0*l.phase - 1.0
 		}
 		return 3.0 - 4.0*l.phase
-		
+
 	case WaveformSquare:
 		if l.phase < 0.5 {
 			return 1.0
 		}
 		return -1.0
-		
+
 	case WaveformSawtooth:
 		// Ramp up from -1 to 1
 		return 2.0*l.phase - 1.0
-		
+
 	case WaveformRandom:
 		// Sample and hold random values
 		if l.randomCounter >= l.randomPeriod {
@@ -152,7 +152,7 @@ func (l *LFO) generateWaveform() float64 {
 		}
 		l.randomCounter++
 		return l.currentRandom
-		
+
 	default:
 		return 0.0
 	}
@@ -162,16 +162,16 @@ func (l *LFO) generateWaveform() float64 {
 func (l *LFO) Process() float64 {
 	// Generate waveform
 	wave := l.generateWaveform()
-	
+
 	// Apply depth and offset
 	output := wave*l.depth + l.offset
-	
+
 	// Advance phase
 	l.phase += l.phaseInc
 	if l.phase >= 1.0 {
 		l.phase -= 1.0
 	}
-	
+
 	// Clamp output to valid range
 	return math.Max(-1.0, math.Min(1.0, output))
 }

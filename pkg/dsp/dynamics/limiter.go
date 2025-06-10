@@ -9,25 +9,25 @@ import (
 // Limiter implements a brick-wall limiter with optional true peak detection
 type Limiter struct {
 	sampleRate float64
-	
+
 	// Parameters
-	threshold   float64 // Ceiling threshold in dB
-	release     float64 // Release time in seconds
-	lookahead   float64 // Lookahead time in seconds
-	truePeak    bool    // Enable true peak detection
-	
+	threshold float64 // Ceiling threshold in dB
+	release   float64 // Release time in seconds
+	lookahead float64 // Lookahead time in seconds
+	truePeak  bool    // Enable true peak detection
+
 	// Envelope detection
 	detector     *envelope.Detector
 	peakDetector *envelope.Detector // For true peak detection
-	
+
 	// Lookahead delay
 	delayBuffer  []float32
 	delayIndex   int
 	delaySamples int
-	
+
 	// True peak oversampling (simple 2x for now)
 	lastSample float32
-	
+
 	// State
 	gainReduction float64 // Current gain reduction in dB
 }
@@ -36,27 +36,27 @@ type Limiter struct {
 func NewLimiter(sampleRate float64) *Limiter {
 	l := &Limiter{
 		sampleRate:   sampleRate,
-		threshold:    -0.3,   // -0.3 dB default ceiling
-		release:      0.050,  // 50ms default release
-		lookahead:    0.005,  // 5ms default lookahead
-		truePeak:     true,   // True peak detection enabled by default
+		threshold:    -0.3,  // -0.3 dB default ceiling
+		release:      0.050, // 50ms default release
+		lookahead:    0.005, // 5ms default lookahead
+		truePeak:     true,  // True peak detection enabled by default
 		detector:     envelope.NewDetector(sampleRate, envelope.ModePeak),
 		peakDetector: envelope.NewDetector(sampleRate, envelope.ModePeak),
 	}
-	
+
 	// Configure main detector for limiting (very fast attack)
 	l.detector.SetType(envelope.TypeLinear)
-	l.detector.SetAttack(0.0001)  // 0.1ms attack
+	l.detector.SetAttack(0.0001) // 0.1ms attack
 	l.detector.SetRelease(l.release)
-	
+
 	// Configure peak detector for instant response
 	l.peakDetector.SetType(envelope.TypeLinear)
 	l.peakDetector.SetAttack(0.0)    // Instant
 	l.peakDetector.SetRelease(0.001) // 1ms
-	
+
 	// Initialize lookahead
 	l.updateLookahead()
-	
+
 	return l
 }
 
@@ -85,7 +85,7 @@ func (l *Limiter) SetTruePeak(enabled bool) {
 // updateLookahead updates the lookahead buffer
 func (l *Limiter) updateLookahead() {
 	newDelaySamples := int(l.lookahead * l.sampleRate)
-	
+
 	if newDelaySamples != l.delaySamples {
 		l.delaySamples = newDelaySamples
 		if l.delaySamples > 0 {
@@ -107,11 +107,11 @@ func (l *Limiter) estimateTruePeak(current float32) float32 {
 	// Simple 2x oversampling estimation
 	// Interpolate between last and current sample
 	midSample := (l.lastSample + current) * 0.5
-	
+
 	// Find peak among last, mid, and current
 	peak := float32(math.Max(math.Abs(float64(l.lastSample)), math.Abs(float64(current))))
 	peak = float32(math.Max(float64(peak), math.Abs(float64(midSample))))
-	
+
 	l.lastSample = current
 	return peak
 }
@@ -123,45 +123,45 @@ func (l *Limiter) Process(input float32) float32 {
 	if l.truePeak {
 		detectionSignal = l.estimateTruePeak(input)
 	}
-	
+
 	// Handle lookahead
 	processSignal := input
 	if l.delaySamples > 0 && l.delayBuffer != nil {
 		// Get delayed signal
 		processSignal = l.delayBuffer[l.delayIndex]
-		
+
 		// Store current input
 		l.delayBuffer[l.delayIndex] = input
 		l.delayIndex = (l.delayIndex + 1) % l.delaySamples
-		
-		// For true peak detection in lookahead mode, 
+
+		// For true peak detection in lookahead mode,
 		// we need to check the peak of the delayed signal too
 		if l.truePeak {
 			// Use peak detector for instant response
-			detectionSignal = float32(math.Max(float64(detectionSignal), 
+			detectionSignal = float32(math.Max(float64(detectionSignal),
 				math.Abs(float64(l.peakDetector.Detect(processSignal)))))
 		}
 	}
-	
+
 	// Get envelope
 	envelope := l.detector.Detect(detectionSignal)
-	
+
 	// Convert to dB
 	inputDB := float64(-96.0)
 	if envelope > 0 {
 		inputDB = 20.0 * math.Log10(float64(envelope))
 	}
-	
+
 	// Calculate gain reduction (infinite ratio)
 	gainReductionDB := 0.0
 	if inputDB > l.threshold {
 		gainReductionDB = inputDB - l.threshold
 	}
 	l.gainReduction = gainReductionDB
-	
+
 	// Apply gain reduction
 	gain := float32(math.Pow(10.0, -gainReductionDB/20.0))
-	
+
 	return processSignal * gain
 }
 
@@ -178,17 +178,17 @@ func (l *Limiter) ProcessStereo(inputL, inputR, outputL, outputR []float32) {
 		// Get true peak of both channels
 		peakL := inputL[i]
 		peakR := inputR[i]
-		
+
 		if l.truePeak {
 			peakL = l.estimateTruePeak(inputL[i])
 			// Need separate true peak estimation for right channel
 			// For simplicity, using max of both
 			peakR = float32(math.Max(math.Abs(float64(inputR[i])), float64(peakR)))
 		}
-		
+
 		// Use maximum for detection
 		maxPeak := float32(math.Max(math.Abs(float64(peakL)), math.Abs(float64(peakR))))
-		
+
 		// Process with lookahead
 		var processL, processR float32 = inputL[i], inputR[i]
 		if l.delaySamples > 0 && l.delayBuffer != nil {
@@ -197,22 +197,22 @@ func (l *Limiter) ProcessStereo(inputL, inputR, outputL, outputR []float32) {
 			processL = inputL[i]
 			processR = inputR[i]
 		}
-		
+
 		// Detect from combined peak
 		envelope := l.detector.Detect(maxPeak)
-		
+
 		// Calculate limiting
 		inputDB := float64(-96.0)
 		if envelope > 0 {
 			inputDB = 20.0 * math.Log10(float64(envelope))
 		}
-		
+
 		gainReductionDB := 0.0
 		if inputDB > l.threshold {
 			gainReductionDB = inputDB - l.threshold
 		}
 		l.gainReduction = gainReductionDB
-		
+
 		// Apply same gain to both channels
 		gain := float32(math.Pow(10.0, -gainReductionDB/20.0))
 		outputL[i] = processL * gain
@@ -227,7 +227,7 @@ func (l *Limiter) Reset() {
 	l.gainReduction = 0.0
 	l.lastSample = 0.0
 	l.delayIndex = 0
-	
+
 	// Clear delay buffer
 	if l.delayBuffer != nil {
 		for i := range l.delayBuffer {

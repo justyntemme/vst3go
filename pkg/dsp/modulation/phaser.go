@@ -6,8 +6,8 @@ import (
 
 // AllPassFilter implements a first-order all-pass filter for phaser stages
 type AllPassFilter struct {
-	a1     float64 // Coefficient
-	state  float32 // Filter state
+	a1    float64 // Coefficient
+	state float32 // Filter state
 }
 
 // NewAllPassFilter creates a new all-pass filter
@@ -28,14 +28,14 @@ func (f *AllPassFilter) Process(input float32) float32 {
 	// First-order all-pass filter
 	// y[n] = a1*x[n] + x[n-1] - a1*y[n-1]
 	// But we need to store the right state
-	
+
 	// Calculate output
 	output := float32(f.a1)*input + f.state
-	
+
 	// Update state for next sample
 	// state = x[n] - a1*y[n]
 	f.state = input - float32(f.a1)*output
-	
+
 	return output
 }
 
@@ -49,12 +49,12 @@ type Phaser struct {
 	sampleRate float64
 
 	// Parameters
-	rate      float64 // LFO rate in Hz
-	depth     float64 // Modulation depth (0-1)
+	rate       float64 // LFO rate in Hz
+	depth      float64 // Modulation depth (0-1)
 	centerFreq float64 // Center frequency for modulation
-	feedback  float64 // Feedback amount (-1 to 1)
-	mix       float64 // Wet/dry mix (0-1)
-	stages    int     // Number of all-pass stages (2, 4, 6, or 8)
+	feedback   float64 // Feedback amount (-1 to 1)
+	mix        float64 // Wet/dry mix (0-1)
+	stages     int     // Number of all-pass stages (2, 4, 6, or 8)
 
 	// All-pass filter stages
 	filters []*AllPassFilter
@@ -139,7 +139,7 @@ func (p *Phaser) SetStages(stages int) {
 	} else if stages%2 != 0 {
 		stages = stages - 1 // Make even
 	}
-	
+
 	p.stages = stages
 	p.updateStages()
 }
@@ -159,7 +159,7 @@ func (p *Phaser) updateFrequencyRange() {
 	freqRange := p.centerFreq * p.depth
 	p.minFreq = p.centerFreq - freqRange/2
 	p.maxFreq = p.centerFreq + freqRange/2
-	
+
 	// Ensure valid range
 	p.minFreq = math.Max(20.0, p.minFreq)
 	p.maxFreq = math.Min(p.sampleRate/4, p.maxFreq)
@@ -169,7 +169,7 @@ func (p *Phaser) updateFrequencyRange() {
 func (p *Phaser) Process(input float32) float32 {
 	// Get LFO modulation (-1 to 1)
 	lfoValue := p.lfo.Process()
-	
+
 	// Map LFO to frequency range
 	// Use exponential scaling for more musical response
 	normalizedLFO := (lfoValue + 1.0) / 2.0 // 0 to 1
@@ -177,33 +177,33 @@ func (p *Phaser) Process(input float32) float32 {
 	logMax := math.Log(p.maxFreq)
 	logFreq := logMin + (logMax-logMin)*normalizedLFO
 	freq := math.Exp(logFreq)
-	
+
 	// Update all-pass filter frequencies
 	for _, filter := range p.filters {
 		filter.SetFrequency(freq, p.sampleRate)
 	}
-	
+
 	// Process through all-pass cascade with feedback
 	wetSignal := input + p.feedbackSample*float32(p.feedback)
-	
+
 	// Limit to prevent runaway feedback
 	if wetSignal > 1.0 {
 		wetSignal = 1.0
 	} else if wetSignal < -1.0 {
 		wetSignal = -1.0
 	}
-	
+
 	// Process through all-pass stages
 	for _, filter := range p.filters {
 		wetSignal = filter.Process(wetSignal)
 	}
-	
+
 	// Store for feedback
 	p.feedbackSample = wetSignal
-	
+
 	// Mix dry and wet signals
 	output := input*float32(1-p.mix) + wetSignal*float32(p.mix)
-	
+
 	return output
 }
 
@@ -212,15 +212,15 @@ func (p *Phaser) ProcessStereo(inputL, inputR float32) (outputL, outputR float32
 	// For stereo, we could use two separate phasers with phase-shifted LFOs
 	// For now, use the same processing but with inverted wet signal on right
 	outputL = p.Process(inputL)
-	
+
 	// Get the wet component
 	wetL := outputL - inputL*float32(1-p.mix)
-	
+
 	// Create right channel with slightly different phasing
 	// Process right input normally but invert the wet signal
 	dryR := inputR * float32(1-p.mix)
 	outputR = dryR - wetL // Inverted wet creates stereo width
-	
+
 	return outputL, outputR
 }
 
@@ -244,10 +244,10 @@ func (p *Phaser) Reset() {
 	for _, filter := range p.filters {
 		filter.Reset()
 	}
-	
+
 	// Reset state
 	p.feedbackSample = 0
-	
+
 	// Reset LFO
 	p.lfo.Reset()
 }

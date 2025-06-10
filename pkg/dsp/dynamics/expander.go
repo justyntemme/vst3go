@@ -22,9 +22,9 @@ type Expander struct {
 	detector *envelope.Detector
 
 	// Smoothing
-	currentGain   float64
-	attackCoeff   float64
-	releaseCoeff  float64
+	currentGain  float64
+	attackCoeff  float64
+	releaseCoeff float64
 
 	// State
 	gainReduction float64 // Current gain reduction in dB (negative for expansion)
@@ -34,12 +34,12 @@ type Expander struct {
 func NewExpander(sampleRate float64) *Expander {
 	e := &Expander{
 		sampleRate:  sampleRate,
-		threshold:   -40.0,  // -40 dB default
-		ratio:       2.0,    // 2:1 default
-		attack:      0.001,  // 1ms default
-		release:     0.100,  // 100ms default
-		knee:        2.0,    // 2dB soft knee
-		range_:      -40.0,  // Max 40dB expansion
+		threshold:   -40.0, // -40 dB default
+		ratio:       2.0,   // 2:1 default
+		attack:      0.001, // 1ms default
+		release:     0.100, // 100ms default
+		knee:        2.0,   // 2dB soft knee
+		range_:      -40.0, // Max 40dB expansion
 		currentGain: 1.0,
 		detector:    envelope.NewDetector(sampleRate, envelope.ModePeak),
 	}
@@ -110,21 +110,21 @@ func (e *Expander) updateTimeConstants() {
 // computeGain calculates the gain for a given input level
 func (e *Expander) computeGain(inputDB float64) float64 {
 	// Above threshold: no expansion
-	if inputDB > e.threshold + e.knee/2 {
+	if inputDB > e.threshold+e.knee/2 {
 		return 0.0
 	}
 
 	// Below threshold - knee: full expansion
-	if inputDB < e.threshold - e.knee/2 {
+	if inputDB < e.threshold-e.knee/2 {
 		// Expansion formula: gain = (input - threshold) * (ratio - 1)
 		// This gives negative gain (reduction) for signals below threshold
 		gain := (inputDB - e.threshold) * (e.ratio - 1.0)
-		
+
 		// Limit to range
 		if gain < e.range_ {
 			gain = e.range_
 		}
-		
+
 		return gain
 	}
 
@@ -133,10 +133,10 @@ func (e *Expander) computeGain(inputDB float64) float64 {
 		// Calculate position in knee (0 to 1)
 		// 0 = top of knee (threshold + knee/2), 1 = bottom of knee
 		kneePos := ((e.threshold + e.knee/2) - inputDB) / e.knee
-		
+
 		// Calculate full expansion at this level
 		fullGain := (inputDB - e.threshold) * (e.ratio - 1.0)
-		
+
 		// Quadratic interpolation
 		return kneePos * kneePos * fullGain
 	}
@@ -148,7 +148,7 @@ func (e *Expander) computeGain(inputDB float64) float64 {
 func (e *Expander) Process(input float32) float32 {
 	// Get envelope
 	envelope := e.detector.Detect(input)
-	
+
 	// Convert to dB
 	inputDB := float64(-96.0)
 	if envelope > 0 {
@@ -199,10 +199,10 @@ func (e *Expander) ProcessStereo(inputL, inputR, outputL, outputR []float32) {
 	for i := range inputL {
 		// Use maximum of both channels for detection
 		maxInput := float32(math.Max(math.Abs(float64(inputL[i])), math.Abs(float64(inputR[i]))))
-		
+
 		// Get envelope
 		envelope := e.detector.Detect(maxInput)
-		
+
 		// Convert to dB
 		inputDB := float64(-96.0)
 		if envelope > 0 {

@@ -9,8 +9,8 @@ type RingModulator struct {
 	sampleRate float64
 
 	// Parameters
-	frequency float64 // Carrier frequency in Hz
-	mix       float64 // Wet/dry mix (0-1)
+	frequency float64  // Carrier frequency in Hz
+	mix       float64  // Wet/dry mix (0-1)
 	waveform  Waveform // Carrier waveform
 
 	// Carrier oscillator

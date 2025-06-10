@@ -277,7 +277,7 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 				for _, channel := range channels {
 					if channel != nil {
 						// Create slice from pointer without allocation
-						samples := (*[1 << 30]float32)(unsafe.Pointer(channel))[:numSamples:numSamples]
+						samples := (*[vst3.MaxArraySize]float32)(unsafe.Pointer(channel))[:numSamples:numSamples]
 						c.processCtx.Input = append(c.processCtx.Input, samples)
 					}
 				}
@@ -295,7 +295,7 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 				for _, channel := range channels {
 					if channel != nil {
 						// Create slice from pointer without allocation
-						samples := (*[1 << 30]float32)(unsafe.Pointer(channel))[:numSamples:numSamples]
+						samples := (*[vst3.MaxArraySize]float32)(unsafe.Pointer(channel))[:numSamples:numSamples]
 						c.processCtx.Output = append(c.processCtx.Output, samples)
 					}
 				}

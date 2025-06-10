@@ -181,17 +181,17 @@ func ChebyshevPolynomial(x float64, order int) float64 {
 	if order == 1 {
 		return x
 	}
-	
+
 	// Use recurrence relation: T_n(x) = 2xT_{n-1}(x) - T_{n-2}(x)
-	tn2 := 1.0  // T_0
-	tn1 := x    // T_1
+	tn2 := 1.0 // T_0
+	tn1 := x   // T_1
 	tn := 0.0
-	
+
 	for i := 2; i <= order; i++ {
 		tn = 2*x*tn1 - tn2
 		tn2 = tn1
 		tn1 = tn
 	}
-	
+
 	return tn
 }

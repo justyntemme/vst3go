@@ -42,7 +42,7 @@ type FilterProcessor struct {
 	// DSP state
 	svFilter   *filter.MultiModeSVF
 	sampleRate float64
-	
+
 	// Debug logging
 	debugLogger *log.Logger
 	callCount   int
@@ -62,10 +62,10 @@ func NewFilterProcessor() *FilterProcessor {
 	if err != nil {
 		debugFile = os.Stderr // Fallback to stderr
 	}
-	
+
 	logger := log.New(debugFile, "[FILTER] ", log.LstdFlags|log.Lmicroseconds)
 	logger.Println("=== Creating new FilterProcessor ===")
-	
+
 	p := &FilterProcessor{
 		params:      param.NewRegistry(),
 		buses:       bus.NewStereoConfiguration(),
@@ -106,10 +106,10 @@ func NewFilterProcessor() *FilterProcessor {
 			Build(),
 	)
 
-	logger.Printf("Parameters added: FilterType=%v, Cutoff=%v, Resonance=%v, Mix=%v", 
-		p.params.Get(ParamFilterType), p.params.Get(ParamCutoff), 
+	logger.Printf("Parameters added: FilterType=%v, Cutoff=%v, Resonance=%v, Mix=%v",
+		p.params.Get(ParamFilterType), p.params.Get(ParamCutoff),
 		p.params.Get(ParamResonance), p.params.Get(ParamMix))
-	
+
 	return p
 }
 
@@ -123,84 +123,84 @@ func (p *FilterProcessor) Initialize(sampleRate float64, maxBlockSize int32) err
 
 func (p *FilterProcessor) ProcessAudio(ctx *process.Context) {
 	p.callCount++
-	
+
 	numChannels := ctx.NumInputChannels()
 	if ctx.NumOutputChannels() < numChannels {
 		numChannels = ctx.NumOutputChannels()
 	}
-	
+
 	numSamples := ctx.NumSamples()
-	
+
 	// Debug every 1000 calls to avoid spam
 	if p.callCount%1000 == 1 {
-		p.debugLogger.Printf("ProcessAudio call #%d: channels=%d, samples=%d, sampleRate=%.1f", 
+		p.debugLogger.Printf("ProcessAudio call #%d: channels=%d, samples=%d, sampleRate=%.1f",
 			p.callCount, numChannels, numSamples, ctx.SampleRate)
 	}
-	
+
 	// Get parameter values
 	filterType := ctx.ParamPlain(ParamFilterType)
 	cutoff := ctx.ParamPlain(ParamCutoff)
 	resonance := ctx.ParamPlain(ParamResonance)
 	mix := ctx.ParamPlain(ParamMix) / 100.0 // Convert percentage to 0-1
-	
+
 	// Also get normalized parameter values for comparison
 	filterTypeNorm := ctx.Param(ParamFilterType)
 	cutoffNorm := ctx.Param(ParamCutoff)
 	resonanceNorm := ctx.Param(ParamResonance)
 	mixNorm := ctx.Param(ParamMix)
-	
+
 	// Debug parameter values every 1000 calls
 	if p.callCount%1000 == 1 {
-		p.debugLogger.Printf("Parameters: type=%.2f, cutoff=%.1fHz, resonance=%.2f, mix=%.2f", 
+		p.debugLogger.Printf("Parameters: type=%.2f, cutoff=%.1fHz, resonance=%.2f, mix=%.2f",
 			filterType, cutoff, resonance, mix)
-		p.debugLogger.Printf("Normalized: typeN=%.3f, cutoffN=%.3f, resonanceN=%.3f, mixN=%.3f", 
+		p.debugLogger.Printf("Normalized: typeN=%.3f, cutoffN=%.3f, resonanceN=%.3f, mixN=%.3f",
 			filterTypeNorm, cutoffNorm, resonanceNorm, mixNorm)
 	}
-	
+
 	// Check if we have valid input
 	if numChannels == 0 || numSamples == 0 {
 		p.debugLogger.Printf("WARNING: No channels (%d) or samples (%d) to process!", numChannels, numSamples)
 		return
 	}
-	
+
 	// Update filter parameters
 	p.svFilter.SetFrequencyAndQ(ctx.SampleRate, cutoff, resonance)
 	p.svFilter.SetMode(filterType / 3.0) // Convert 0-3 to 0-1
-	
+
 	// Sample input level for debugging
 	var inputLevel, outputLevel float64
-	
+
 	// Process each channel
 	for ch := 0; ch < numChannels; ch++ {
 		input := ctx.Input[ch]
 		output := ctx.Output[ch]
-		
+
 		if len(input) != numSamples || len(output) != numSamples {
-			p.debugLogger.Printf("WARNING: Buffer size mismatch! input=%d, output=%d, expected=%d", 
+			p.debugLogger.Printf("WARNING: Buffer size mismatch! input=%d, output=%d, expected=%d",
 				len(input), len(output), numSamples)
 			continue
 		}
-		
+
 		// Sample input level (first few samples)
 		if ch == 0 && p.callCount%1000 == 1 {
 			for i := 0; i < min(10, numSamples); i++ {
 				inputLevel += float64(input[i] * input[i])
 			}
 		}
-		
+
 		// Copy input to output first
 		copy(output, input)
-		
+
 		// Apply filter
 		p.svFilter.Process(output, ch)
-		
+
 		// Sample output level (first few samples)
 		if ch == 0 && p.callCount%1000 == 1 {
 			for i := 0; i < min(10, numSamples); i++ {
 				outputLevel += float64(output[i] * output[i])
 			}
 		}
-		
+
 		// Apply mix (wet/dry blend)
 		if mix < 1.0 {
 			for i := range output {
@@ -208,10 +208,10 @@ func (p *FilterProcessor) ProcessAudio(ctx *process.Context) {
 			}
 		}
 	}
-	
+
 	// Debug audio levels every 1000 calls
 	if p.callCount%1000 == 1 {
-		p.debugLogger.Printf("Audio levels: input RMS=%.6f, filtered RMS=%.6f", 
+		p.debugLogger.Printf("Audio levels: input RMS=%.6f, filtered RMS=%.6f",
 			inputLevel/10.0, outputLevel/10.0)
 	}
 }

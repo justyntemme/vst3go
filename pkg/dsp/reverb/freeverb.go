@@ -56,9 +56,9 @@ type Freeverb struct {
 	sampleRate float64
 
 	// Cached values
-	wet1 float64
-	wet2 float64
-	dry  float64
+	wet1  float64
+	wet2  float64
+	dry   float64
 	damp1 float64
 	damp2 float64
 }
@@ -83,7 +83,7 @@ func NewFreeverb(sampleRate float64) *Freeverb {
 	for i := 0; i < numCombs; i++ {
 		delaySamplesL := int(float64(combTuning[i]) * scaleFactor)
 		delaySamplesR := int(float64(combTuning[i]+stereoSpread) * scaleFactor)
-		
+
 		f.combL[i] = NewCombFilter(delaySamplesL)
 		f.combR[i] = NewCombFilter(delaySamplesR)
 	}
@@ -92,10 +92,10 @@ func NewFreeverb(sampleRate float64) *Freeverb {
 	for i := 0; i < numAllpasses; i++ {
 		delaySamplesL := int(float64(allpassTuning[i]) * scaleFactor)
 		delaySamplesR := int(float64(allpassTuning[i]+stereoSpread) * scaleFactor)
-		
+
 		f.allpassL[i] = NewAllPassFilter(delaySamplesL)
 		f.allpassR[i] = NewAllPassFilter(delaySamplesR)
-		
+
 		// Allpass filters use fixed feedback
 		f.allpassL[i].SetFeedback(0.5)
 		f.allpassR[i].SetFeedback(0.5)
@@ -103,7 +103,7 @@ func NewFreeverb(sampleRate float64) *Freeverb {
 
 	// Initialize internal parameters
 	f.update()
-	
+
 	return f
 }
 
@@ -148,10 +148,10 @@ func (f *Freeverb) update() {
 	// Calculate wet signal levels based on width
 	f.wet1 = f.wetLevel * (f.width/2.0 + 0.5)
 	f.wet2 = f.wetLevel * ((1.0 - f.width) / 2.0)
-	
+
 	// Set dry level
 	f.dry = f.dryLevel
-	
+
 	// Apply freeze mode if active
 	var roomSize, damping float64
 	if f.mode >= 0.5 {
@@ -161,12 +161,12 @@ func (f *Freeverb) update() {
 		roomSize = f.roomSize
 		damping = f.damping
 	}
-	
+
 	// Calculate feedback and damping values
 	feedback := roomSize*scaleRoom + offsetRoom
 	f.damp1 = damping * scaleDamping
 	f.damp2 = 1.0 - f.damp1
-	
+
 	// Update comb filters
 	for i := 0; i < numCombs; i++ {
 		f.combL[i].SetFeedback(feedback)
@@ -180,26 +180,26 @@ func (f *Freeverb) update() {
 func (f *Freeverb) ProcessStereo(inputL, inputR float32) (outputL, outputR float32) {
 	// Mix input to mono for reverb processing
 	input := (inputL + inputR) * f.gain
-	
+
 	// Initialize output accumulators
 	var outL, outR float32
-	
+
 	// Process through parallel comb filters
 	for i := 0; i < numCombs; i++ {
 		outL += f.combL[i].Process(input)
 		outR += f.combR[i].Process(input)
 	}
-	
+
 	// Process through series allpass filters
 	for i := 0; i < numAllpasses; i++ {
 		outL = f.allpassL[i].Process(outL)
 		outR = f.allpassR[i].Process(outR)
 	}
-	
+
 	// Apply wet/dry mix and width
 	outputL = outL*float32(f.wet1) + outR*float32(f.wet2) + inputL*float32(f.dry)
 	outputR = outR*float32(f.wet1) + outL*float32(f.wet2) + inputR*float32(f.dry)
-	
+
 	return outputL, outputR
 }
 
@@ -217,7 +217,7 @@ func (f *Freeverb) Reset() {
 		f.combL[i].Reset()
 		f.combR[i].Reset()
 	}
-	
+
 	// Reset all allpass filters
 	for i := 0; i < numAllpasses; i++ {
 		f.allpassL[i].Reset()

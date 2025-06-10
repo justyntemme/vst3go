@@ -1,0 +1,236 @@
+[33mcommit be46c16f54309379e15de14528df3f2e9f7b9d32[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Tue Jun 10 17:11:01 2025 -0500
+
+    update TODO / add .gitignore
+
+[33mcommit 62e8136637968b0f60e9accb918d836398b1a716[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Tue Jun 10 13:58:27 2025 -0500
+
+    remove ring buffer planning
+
+[33mcommit 1ad929290a80d707e0c33f6a0bfc4fad6f77e089[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Tue Jun 10 13:57:54 2025 -0500
+
+    Reset as we won't need the ring buffer
+
+[33mcommit dd20642a05e6da29d03ff4209f59bf0d6ed1030c[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sun Jun 1 12:17:36 2025 -0500
+
+    keeping the plan + shared buffer to review that later
+
+[33mcommit 544e4f669fea5fdf73068d0448981a6d5e541f4f[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sun Jun 1 12:15:46 2025 -0500
+
+    time 4 review
+
+[33mcommit 89016d215e7fe1098de0574f74877304db398446[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sun Jun 1 12:06:55 2025 -0500
+
+    time 4 review
+
+[33mcommit 50b21d8cae46cf009e0180d54a1e1631727806ca[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sun Jun 1 11:53:50 2025 -0500
+
+    planning for latency management while the repo is still young
+
+[33mcommit dccbada7e349e40d585537b8302c06524369d006[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sun Jun 1 11:48:41 2025 -0500
+
+    walking through implementing the ring buffer shared model architecture to handle latency from gc
+
+[33mcommit 4a7eaadba4f94e14d76b678edff79eee3e43a62a[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sat May 31 16:51:02 2025 -0500
+
+    things are building, docs included
+
+[33mcommit f8a32c82bdc20202c843fe399f31d0394fd269be[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sat May 31 15:10:08 2025 -0500
+
+    working on expander
+
+[33mcommit d146907cf773fd4b9bf5d63b18091c96e174facb[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sat May 31 14:30:43 2025 -0500
+
+    docs & planning
+
+[33mcommit 46aa873b380ca51302713c1d05c04ca28b45f1c6[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sat May 31 14:22:01 2025 -0500
+
+    refactor completE
+
+[33mcommit 2dcf52d9b010c8f53275f13f9b7011e7f4fac574[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sat May 31 13:38:50 2025 -0500
+
+    ensure TODO is up to date with our latest changes and roadmap
+
+[33mcommit 2a13a6eb1cef8fb8bb8f598ab0420d48e8e63b3c[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Sat May 31 13:34:52 2025 -0500
+
+    fixed parameter normalization
+
+[33mcommit b2ea4bfe339920a0da0d68bb53da9ec63eafc33e[m
+Merge: 8301727 4c98894
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 16:16:09 2025 -0500
+
+    Merge pull request #1 from justyntemme/linting-fixes
+    
+    Linting fixes
+
+[33mcommit 4c9889461aa16a2d223dab1ca29ba013ed730805[m[33m ([m[1;31morigin/linting-fixes[m[33m, [m[1;32mlinting-fixes[m[33m)[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 16:15:29 2025 -0500
+
+    linting complete, let's fix pr
+
+[33mcommit 1984d2811cacd93264e25ac1f9affde8a6286f84[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 16:00:43 2025 -0500
+
+    added linting in our makefile
+
+[33mcommit 83017278be87f9413cdc9381492a5c4082bb14ee[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 15:10:40 2025 -0500
+
+    the parameters now show correctly
+
+[33mcommit 45525d99fe21f6a05f4f2f1797ad804bcbafca62[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 14:37:39 2025 -0500
+
+    add work for sonnet after opus credits are consumed
+
+[33mcommit 49d375d1f6e161163ba59a6b883899bca2bf3494[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 11:03:40 2025 -0500
+
+    docs & planning
+
+[33mcommit 1a6e45ed8a6b195fb00e2f101a937706ce77dc85[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 10:29:37 2025 -0500
+
+    modified .gitignore to ignore build directory
+
+[33mcommit 77ebac796bb8c472018c663b29712fb1592c73ad[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 10:25:38 2025 -0500
+
+    docs change
+
+[33mcommit 698a684f313640c2f76287ed340f852e41dcca5d[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 10:25:23 2025 -0500
+
+    docs change
+
+[33mcommit 8b31be67d91c74cfbbb51c3161e49ad466e7efaa[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 10:15:17 2025 -0500
+
+    organization planning & documentation
+
+[33mcommit 9b7c74c3ce0345de1dff5732616a1ec823967d04[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 09:48:54 2025 -0500
+
+    additional strategy
+
+[33mcommit 64a26c1bf4c4b0891cb03ff31df4ee98f9cc83a9[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 09:20:25 2025 -0500
+
+    additional strategy
+
+[33mcommit bcaf0635ce2a163f5462cd99eb22128e453507e5[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 09:17:43 2025 -0500
+
+    additional strategy
+
+[33mcommit 5771fa7d8b25a74f8cb9bfb3d0a5121027908f99[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Fri May 30 10:24:47 2025 -0500
+
+    Create .gitignore
+
+[33mcommit 2c8dc3e20232d4a04c118c39f6544b8891029415[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 21:16:08 2025 -0500
+
+    fix makefile
+
+[33mcommit b805f7818c0bdad28b73e0adcfa4942aafe8de50[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 20:53:11 2025 -0500
+
+    it completed the gain plugin and it works and just started making a reverb plugin lmaooo
+
+[33mcommit 576cddef4f3219e93f3e78ea5b56776ee226c96a[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 18:08:20 2025 -0500
+
+    starting point
+
+[33mcommit 7d4070c7d917661363b4e791d0ae643899bb9234[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 16:51:53 2025 -0500
+
+    finished anopher wave
+
+[33mcommit 3650369136bdc64b5298377bbcf66e8fdb781dc2[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 16:51:45 2025 -0500
+
+    finished anopher wave
+
+[33mcommit e32c4f286d7ae27a3176a5eba3ae125a56ad4e2e[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 16:44:07 2025 -0500
+
+    Effect scannable by reaper
+
+[33mcommit 163d0360757920d23b9ff203d50221a6e76caae5[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 16:05:15 2025 -0500
+
+    passing more tests
+
+[33mcommit ae5aa4264929ba4ce3137ad47aa14739d94ef567[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 15:50:38 2025 -0500
+
+    update planning
+
+[33mcommit f20f7ad3e6fd205ae942b11ef8ce251faee69dfc[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 15:34:14 2025 -0500
+
+    Phase one complete, skeleton is lookign good!
+
+[33mcommit 40ee0e38f642cac9be430c07b9b6066f2db9c565[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 15:12:37 2025 -0500
+
+    testing framework finished, now to develop the library
+
+[33mcommit d434cd0638d682d43bae3fab483f841ecf1b94af[m
+Author: Justyn Temme <justyntemme@gmail.com>
+Date:   Thu May 29 14:01:32 2025 -0500
+
+    add includes

@@ -43,7 +43,7 @@ func TestGateBasicOperation(t *testing.T) {
 	// Test with signal below threshold
 	quietSignal := float32(0.01) // ~-40 dB
 	output := g.Process(quietSignal)
-	
+
 	// Should be attenuated
 	if output >= quietSignal {
 		t.Errorf("Gate not attenuating quiet signal: input %f, output %f", quietSignal, output)
@@ -55,7 +55,7 @@ func TestGateBasicOperation(t *testing.T) {
 	for i := 0; i < 200; i++ {
 		output = g.Process(loudSignal)
 	}
-	
+
 	// After attack time, should be close to input
 	if math.Abs(float64(output-loudSignal)) > 0.01 {
 		t.Errorf("Gate not passing loud signal: input %f, output %f", loudSignal, output)
@@ -73,16 +73,16 @@ func TestGateHysteresis(t *testing.T) {
 
 	// Signal at threshold should open gate
 	thresholdSignal := float32(0.1) // -20 dB
-	
+
 	// Process twice to ensure state transitions
 	output1 := g.Process(thresholdSignal)
 	output2 := g.Process(thresholdSignal)
-	
-	t.Logf("After 1st process: Output: %f, State: %s, IsOpen: %v, GainReduction: %f dB", 
+
+	t.Logf("After 1st process: Output: %f, State: %s, IsOpen: %v, GainReduction: %f dB",
 		output1, g.GetState(), g.IsOpen(), g.GetGainReduction())
-	t.Logf("After 2nd process: Output: %f, State: %s, IsOpen: %v, GainReduction: %f dB", 
+	t.Logf("After 2nd process: Output: %f, State: %s, IsOpen: %v, GainReduction: %f dB",
 		output2, g.GetState(), g.IsOpen(), g.GetGainReduction())
-	
+
 	if !g.IsOpen() {
 		t.Error("Gate should open at threshold")
 	}
@@ -90,7 +90,7 @@ func TestGateHysteresis(t *testing.T) {
 	// Signal 3dB below threshold (within hysteresis) should keep gate open
 	slightlyQuieter := float32(0.0707) // ~-23 dB
 	g.Process(slightlyQuieter)
-	
+
 	if !g.IsOpen() {
 		t.Error("Gate should stay open within hysteresis band")
 	}
@@ -99,7 +99,7 @@ func TestGateHysteresis(t *testing.T) {
 	belowHysteresis := float32(0.04) // ~-28 dB (below -26 dB close threshold)
 	g.Process(belowHysteresis)
 	g.Process(belowHysteresis) // Process twice for state transition
-	
+
 	if g.IsOpen() {
 		t.Error("Gate should close below hysteresis band")
 	}
@@ -116,7 +116,7 @@ func TestGateHoldTime(t *testing.T) {
 	// Open the gate
 	loudSignal := float32(0.2)
 	g.Process(loudSignal)
-	
+
 	if !g.IsOpen() {
 		t.Fatal("Gate should be open")
 	}
@@ -124,17 +124,17 @@ func TestGateHoldTime(t *testing.T) {
 	// Signal drops below threshold
 	quietSignal := float32(0.01)
 	holdSamples := int(0.010 * sampleRate)
-	
+
 	// Process for half the hold time
 	for i := 0; i < holdSamples/2; i++ {
 		g.Process(quietSignal)
 	}
-	
+
 	// Should still be open (in hold state)
 	if !g.IsOpen() {
 		t.Error("Gate should remain open during hold time")
 	}
-	
+
 	if g.GetState() != "hold" {
 		t.Errorf("Gate should be in hold state, got %s", g.GetState())
 	}
@@ -143,7 +143,7 @@ func TestGateHoldTime(t *testing.T) {
 	for i := 0; i < holdSamples; i++ {
 		g.Process(quietSignal)
 	}
-	
+
 	// Now should be closing
 	if g.GetState() != "release" && g.GetState() != "closed" {
 		t.Errorf("Gate should be in release or closed state after hold time, got %s", g.GetState())
@@ -160,7 +160,7 @@ func TestGateRange(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		g.Process(quietSignal)
 	}
-	
+
 	// Check gain reduction
 	gr := g.GetGainReduction()
 	if gr > -39.0 || gr < -41.0 {
@@ -188,7 +188,7 @@ func TestGateSidechainFilter(t *testing.T) {
 	}
 
 	// Debug: check max filtered level
-	maxFilteredDB := 20.0 * math.Log10(float64(maxFiltered) + 1e-10)
+	maxFilteredDB := 20.0 * math.Log10(float64(maxFiltered)+1e-10)
 	t.Logf("Max filtered output: %f (%f dB), State: %s", maxFiltered, maxFilteredDB, g.GetState())
 
 	// Gate should remain closed due to HPF filtering out 50Hz
@@ -216,10 +216,10 @@ func TestGateSidechainFilter(t *testing.T) {
 func TestGateStereoLinking(t *testing.T) {
 	g := NewGate(48000.0)
 	g.SetThreshold(-20.0)
-	g.SetAttack(0.0)  // Instant for testing
+	g.SetAttack(0.0) // Instant for testing
 
 	// Left channel loud, right channel quiet
-	inputL := []float32{0.2, 0.2, 0.2}   // Above threshold
+	inputL := []float32{0.2, 0.2, 0.2}    // Above threshold
 	inputR := []float32{0.01, 0.01, 0.01} // Below threshold
 	outputL := make([]float32, 3)
 	outputR := make([]float32, 3)
@@ -248,7 +248,7 @@ func TestGateAttackRelease(t *testing.T) {
 	// Test attack
 	loudSignal := float32(0.2)
 	attackSamples := int(0.010 * sampleRate)
-	
+
 	var lastOutput float32
 	for i := 0; i < attackSamples; i++ {
 		output := g.Process(loudSignal)
@@ -266,7 +266,7 @@ func TestGateAttackRelease(t *testing.T) {
 	// Test release
 	quietSignal := float32(0.01)
 	releaseSamples := int(0.020 * sampleRate)
-	
+
 	lastOutput = loudSignal // Reset to loud level
 	for i := 0; i < releaseSamples; i++ {
 		output := g.Process(quietSignal)
@@ -280,23 +280,23 @@ func TestGateAttackRelease(t *testing.T) {
 
 func TestGateReset(t *testing.T) {
 	g := NewGate(48000.0)
-	
+
 	// Open the gate
 	g.Process(1.0)
-	
+
 	// Reset
 	g.Reset()
-	
+
 	// Check state
 	if g.IsOpen() {
 		t.Error("Gate should be closed after reset")
 	}
-	
+
 	if g.GetGainReduction() != g.range_ {
-		t.Errorf("Gain reduction not reset correctly: got %f, expected %f", 
+		t.Errorf("Gain reduction not reset correctly: got %f, expected %f",
 			g.GetGainReduction(), g.range_)
 	}
-	
+
 	if g.GetState() != "closed" {
 		t.Errorf("Gate state incorrect after reset: %s", g.GetState())
 	}
@@ -333,7 +333,7 @@ func TestGateStates(t *testing.T) {
 func BenchmarkGate(b *testing.B) {
 	g := NewGate(48000.0)
 	input := float32(0.5)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = g.Process(input)
@@ -344,7 +344,7 @@ func BenchmarkGateWithSidechain(b *testing.B) {
 	g := NewGate(48000.0)
 	g.SetSidechainFilter(true, 100.0)
 	input := float32(0.5)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = g.Process(input)

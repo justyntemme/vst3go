@@ -19,12 +19,12 @@ type Tremolo struct {
 	sampleRate float64
 
 	// Parameters
-	rate     float64      // LFO rate in Hz
-	depth    float64      // Modulation depth (0-1)
-	waveform Waveform     // LFO waveform
-	mode     TremoloMode  // Tremolo mode
-	stereo   bool         // Stereo operation mode
-	phase    float64      // Stereo phase offset (0-1)
+	rate     float64     // LFO rate in Hz
+	depth    float64     // Modulation depth (0-1)
+	waveform Waveform    // LFO waveform
+	mode     TremoloMode // Tremolo mode
+	stereo   bool        // Stereo operation mode
+	phase    float64     // Stereo phase offset (0-1)
 
 	// LFOs
 	lfoL *LFO
@@ -55,7 +55,7 @@ func NewTremolo(sampleRate float64) *Tremolo {
 	// Create LFOs
 	t.lfoL = NewLFO(sampleRate)
 	t.lfoR = NewLFO(sampleRate)
-	
+
 	t.updateLFOs()
 	t.updateSmoothing()
 
@@ -79,7 +79,7 @@ func (t *Tremolo) SetWaveform(waveform Waveform) {
 	t.waveform = waveform
 	t.lfoL.SetWaveform(waveform)
 	t.lfoR.SetWaveform(waveform)
-	
+
 	// Enable smoothing for square wave
 	t.smoothing = (waveform == WaveformSquare)
 	t.updateSmoothing()
@@ -111,10 +111,10 @@ func (t *Tremolo) EnableSmoothing(enabled bool) {
 func (t *Tremolo) updateLFOs() {
 	t.lfoL.SetFrequency(t.rate)
 	t.lfoL.SetWaveform(t.waveform)
-	
+
 	t.lfoR.SetFrequency(t.rate)
 	t.lfoR.SetWaveform(t.waveform)
-	
+
 	// Set phase offset for stereo
 	if t.stereo {
 		t.lfoR.SetPhase(t.phase)
@@ -135,16 +135,16 @@ func (t *Tremolo) updateSmoothing() {
 func (t *Tremolo) Process(input float32) float32 {
 	// Get LFO value (-1 to 1)
 	lfoValue := t.lfoL.Process()
-	
+
 	// Calculate gain based on mode
 	var gain float64
-	
+
 	switch t.mode {
 	case TremoloModeNormal:
 		// Standard tremolo: LFO modulates between (1-depth) and 1
 		// Map LFO from [-1,1] to [1-depth, 1]
 		gain = 1.0 - t.depth*(1.0-lfoValue)/2.0
-		
+
 	case TremoloModeHarmonic:
 		// Harmonic tremolo: use absolute value of LFO for richer harmonics
 		// This creates frequency doubling effect
@@ -152,13 +152,13 @@ func (t *Tremolo) Process(input float32) float32 {
 		absLFO := math.Abs(lfoValue)
 		gain = 1.0 - t.depth*absLFO
 	}
-	
+
 	// Apply smoothing if enabled (mainly for square wave)
 	if t.smoothing {
 		t.smoothedGainL = gain + (t.smoothedGainL-gain)*t.smoothCoeff
 		gain = t.smoothedGainL
 	}
-	
+
 	// Apply amplitude modulation
 	return input * float32(gain)
 }
@@ -168,24 +168,24 @@ func (t *Tremolo) ProcessStereo(inputL, inputR float32) (outputL, outputR float3
 	// Get LFO values
 	lfoL := t.lfoL.Process()
 	lfoR := lfoL // Default to same value
-	
+
 	if t.stereo {
 		lfoR = t.lfoR.Process()
 	}
-	
+
 	// Calculate gains based on mode
 	var gainL, gainR float64
-	
+
 	switch t.mode {
 	case TremoloModeNormal:
 		gainL = 1.0 - t.depth*(1.0-lfoL)/2.0
 		gainR = 1.0 - t.depth*(1.0-lfoR)/2.0
-		
+
 	case TremoloModeHarmonic:
 		gainL = 1.0 - t.depth*math.Abs(lfoL)
 		gainR = 1.0 - t.depth*math.Abs(lfoR)
 	}
-	
+
 	// Apply smoothing if enabled
 	if t.smoothing {
 		t.smoothedGainL = gainL + (t.smoothedGainL-gainL)*t.smoothCoeff
@@ -193,11 +193,11 @@ func (t *Tremolo) ProcessStereo(inputL, inputR float32) (outputL, outputR float3
 		gainL = t.smoothedGainL
 		gainR = t.smoothedGainR
 	}
-	
+
 	// Apply amplitude modulation
 	outputL = inputL * float32(gainL)
 	outputR = inputR * float32(gainR)
-	
+
 	return outputL, outputR
 }
 
@@ -226,7 +226,7 @@ func (t *Tremolo) Reset() {
 	t.lfoR.Reset()
 	t.smoothedGainL = 1.0
 	t.smoothedGainR = 1.0
-	
+
 	// Restore phase offset
 	if t.stereo {
 		t.lfoR.SetPhase(t.phase)

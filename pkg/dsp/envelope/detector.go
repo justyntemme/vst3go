@@ -36,18 +36,18 @@ type Detector struct {
 	detType    DetectorType
 
 	// Time constants
-	attack      float64 // Attack time in seconds
-	release     float64 // Release time in seconds
-	hold        float64 // Hold time in seconds (for peak hold mode)
-	
+	attack  float64 // Attack time in seconds
+	release float64 // Release time in seconds
+	hold    float64 // Hold time in seconds (for peak hold mode)
+
 	// Coefficients (pre-calculated)
 	attackCoef  float64
 	releaseCoef float64
-	
+
 	// State
 	envelope    float64
 	holdCounter int
-	
+
 	// RMS window
 	rmsWindow    []float64
 	rmsIndex     int
@@ -61,19 +61,19 @@ func NewDetector(sampleRate float64, mode DetectorMode) *Detector {
 		sampleRate:   sampleRate,
 		mode:         mode,
 		detType:      TypeLinear,
-		attack:       0.001,  // 1ms default
-		release:      0.100,  // 100ms default
-		hold:         0.010,  // 10ms default
+		attack:       0.001,                   // 1ms default
+		release:      0.100,                   // 100ms default
+		hold:         0.010,                   // 10ms default
 		rmsWindowLen: int(sampleRate * 0.003), // 3ms RMS window
 		envelope:     0.0,
 		holdCounter:  0,
 	}
-	
+
 	// Initialize RMS window if needed
 	if mode == ModeRMS {
 		d.rmsWindow = make([]float64, d.rmsWindowLen)
 	}
-	
+
 	d.updateCoefficients()
 	return d
 }
@@ -81,7 +81,7 @@ func NewDetector(sampleRate float64, mode DetectorMode) *Detector {
 // SetMode sets the detection mode
 func (d *Detector) SetMode(mode DetectorMode) {
 	d.mode = mode
-	
+
 	// Initialize RMS window if switching to RMS mode
 	if mode == ModeRMS && d.rmsWindow == nil {
 		d.rmsWindow = make([]float64, d.rmsWindowLen)
@@ -126,7 +126,7 @@ func (d *Detector) SetRMSWindow(ms float64) {
 	if newLen < 1 {
 		newLen = 1
 	}
-	
+
 	if newLen != d.rmsWindowLen {
 		d.rmsWindowLen = newLen
 		d.rmsWindow = make([]float64, d.rmsWindowLen)
@@ -142,44 +142,44 @@ func (d *Detector) updateCoefficients() {
 		// Linear coefficients - for one-pole filter approach
 		d.attackCoef = 1.0 - math.Exp(-1.0/(d.attack*d.sampleRate))
 		d.releaseCoef = 1.0 - math.Exp(-1.0/(d.release*d.sampleRate))
-		
+
 	case TypeLogarithmic:
 		// Logarithmic coefficients (more musical) - faster attack
 		d.attackCoef = 1.0 - math.Exp(-2.2/(d.attack*d.sampleRate))
 		d.releaseCoef = 1.0 - math.Exp(-2.2/(d.release*d.sampleRate))
-		
+
 	case TypeAnalog:
 		// Analog-style coefficients - exponential decay
-		d.attackCoef = math.Exp(-1.0/(d.attack*d.sampleRate))
-		d.releaseCoef = math.Exp(-1.0/(d.release*d.sampleRate))
+		d.attackCoef = math.Exp(-1.0 / (d.attack * d.sampleRate))
+		d.releaseCoef = math.Exp(-1.0 / (d.release * d.sampleRate))
 	}
 }
 
 // Detect processes a single sample and returns the envelope value
 func (d *Detector) Detect(input float32) float32 {
 	var inputLevel float64
-	
+
 	// Get input level based on mode
 	switch d.mode {
 	case ModePeak, ModePeakHold:
 		// Peak detection - just absolute value
 		inputLevel = math.Abs(float64(input))
-		
+
 	case ModeRMS:
 		// RMS detection - square the input
 		squared := float64(input) * float64(input)
-		
+
 		// Update RMS window
 		oldValue := d.rmsWindow[d.rmsIndex]
 		d.rmsWindow[d.rmsIndex] = squared
 		d.rmsSum += squared - oldValue
 		d.rmsIndex = (d.rmsIndex + 1) % d.rmsWindowLen
-		
+
 		// Calculate RMS
 		meanSquare := d.rmsSum / float64(d.rmsWindowLen)
 		inputLevel = math.Sqrt(meanSquare)
 	}
-	
+
 	// Apply envelope detection based on type
 	switch d.detType {
 	case TypeLinear, TypeLogarithmic:
@@ -189,7 +189,7 @@ func (d *Detector) Detect(input float32) float32 {
 			// For peak mode with instantaneous peaks, capture them immediately
 			if d.mode == ModePeak || d.mode == ModePeakHold {
 				// If attack time is very short or input is significantly higher, jump to peak
-				if d.attackCoef > 0.5 || inputLevel > d.envelope * 2.0 {
+				if d.attackCoef > 0.5 || inputLevel > d.envelope*2.0 {
 					d.envelope = inputLevel
 				}
 			}
@@ -202,7 +202,7 @@ func (d *Detector) Detect(input float32) float32 {
 				d.envelope += (inputLevel - d.envelope) * d.releaseCoef
 			}
 		}
-		
+
 	case TypeAnalog:
 		// Analog-style envelope (using coefficients differently)
 		if inputLevel > d.envelope {
@@ -216,7 +216,7 @@ func (d *Detector) Detect(input float32) float32 {
 			}
 		}
 	}
-	
+
 	return float32(d.envelope)
 }
 

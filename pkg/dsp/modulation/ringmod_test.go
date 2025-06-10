@@ -79,13 +79,13 @@ func TestRingModulatorFullWet(t *testing.T) {
 
 func TestRingModulatorFrequencyDoubling(t *testing.T) {
 	rm := NewRingModulator(48000.0)
-	rm.SetMix(1.0) // Full wet
+	rm.SetMix(1.0)          // Full wet
 	rm.SetFrequency(1000.0) // 1kHz carrier
 
 	// Input a 1kHz sine wave (same as carrier)
 	inputFreq := 1000.0
 	samples := 480 // 10ms
-	
+
 	input := make([]float32, samples)
 	output := make([]float32, samples)
 
@@ -150,7 +150,7 @@ func TestRingModulatorWaveforms(t *testing.T) {
 	}
 
 	dc := float32(1.0)
-	
+
 	for _, wf := range waveforms {
 		rm.SetWaveform(wf)
 		rm.Reset()
@@ -178,7 +178,7 @@ func TestRingModulatorLFO(t *testing.T) {
 	rm.SetMix(1.0)
 	rm.SetFrequency(1000.0)
 	rm.EnableLFO(true)
-	rm.SetLFORate(2.0) // 2Hz
+	rm.SetLFORate(2.0)  // 2Hz
 	rm.SetLFODepth(0.5) // 50% modulation
 
 	// Process a constant signal and look for frequency variation
@@ -193,7 +193,7 @@ func TestRingModulatorLFO(t *testing.T) {
 	prevSample := float32(0)
 	for i := 0; i < samples; i++ {
 		sample := rm.Process(dc)
-		
+
 		// Count zero crossings
 		if (prevSample < 0 && sample >= 0) || (prevSample >= 0 && sample < 0) {
 			window := i / windowSize
@@ -264,7 +264,7 @@ func TestRingModulatorReset(t *testing.T) {
 
 	// Process again - should start from beginning
 	output1 := rm.Process(1.0)
-	
+
 	// Create new instance and process once
 	rm2 := NewRingModulator(48000.0)
 	rm2.SetFrequency(1000.0)

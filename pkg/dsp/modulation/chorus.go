@@ -7,25 +7,25 @@ import (
 // Chorus implements a multi-voice chorus effect
 type Chorus struct {
 	sampleRate float64
-	
+
 	// Parameters
-	rate      float64   // LFO rate in Hz
-	depth     float64   // Modulation depth in ms
-	delay     float64   // Base delay time in ms
-	mix       float64   // Wet/dry mix (0-1)
-	feedback  float64   // Feedback amount (0-0.5)
-	spread    float64   // Stereo spread (0-1)
-	voices    int       // Number of chorus voices
-	
+	rate     float64 // LFO rate in Hz
+	depth    float64 // Modulation depth in ms
+	delay    float64 // Base delay time in ms
+	mix      float64 // Wet/dry mix (0-1)
+	feedback float64 // Feedback amount (0-0.5)
+	spread   float64 // Stereo spread (0-1)
+	voices   int     // Number of chorus voices
+
 	// Delay lines for each voice (stereo)
-	delayLinesL [][]float32
-	delayLinesR [][]float32
-	delayIndex  int
+	delayLinesL     [][]float32
+	delayLinesR     [][]float32
+	delayIndex      int
 	maxDelaySamples int
-	
+
 	// LFOs for each voice
 	lfos []*LFO
-	
+
 	// Feedback state
 	feedbackL float32
 	feedbackR float32
@@ -43,11 +43,11 @@ func NewChorus(sampleRate float64) *Chorus {
 		spread:     1.0,
 		voices:     2,
 	}
-	
+
 	// Initialize with default voices
 	c.SetVoices(2)
 	c.updateDelayLines()
-	
+
 	return c
 }
 
@@ -88,19 +88,19 @@ func (c *Chorus) SetSpread(spread float64) {
 // SetVoices sets the number of chorus voices (1-4)
 func (c *Chorus) SetVoices(voices int) {
 	c.voices = max(1, min(4, voices))
-	
+
 	// Create LFOs for each voice
 	c.lfos = make([]*LFO, c.voices)
 	for i := 0; i < c.voices; i++ {
 		c.lfos[i] = NewLFO(c.sampleRate)
 		c.lfos[i].SetFrequency(c.rate)
 		c.lfos[i].SetWaveform(WaveformSine)
-		
+
 		// Offset phase for each voice
 		phase := float64(i) / float64(c.voices)
 		c.lfos[i].SetPhase(phase)
 	}
-	
+
 	c.updateDelayLines()
 }
 
@@ -109,19 +109,19 @@ func (c *Chorus) updateDelayLines() {
 	// Calculate maximum delay needed (base + modulation depth)
 	maxDelayMs := c.delay + c.depth
 	c.maxDelaySamples = int(maxDelayMs * c.sampleRate / 1000.0)
-	
+
 	// Add some headroom
 	c.maxDelaySamples = int(float64(c.maxDelaySamples) * 1.2)
-	
+
 	// Create delay lines for each voice
 	c.delayLinesL = make([][]float32, c.voices)
 	c.delayLinesR = make([][]float32, c.voices)
-	
+
 	for i := 0; i < c.voices; i++ {
 		c.delayLinesL[i] = make([]float32, c.maxDelaySamples)
 		c.delayLinesR[i] = make([]float32, c.maxDelaySamples)
 	}
-	
+
 	c.delayIndex = 0
 	c.feedbackL = 0
 	c.feedbackR = 0
@@ -138,57 +138,57 @@ func (c *Chorus) ProcessStereo(inputL, inputR float32) (outputL, outputR float32
 	// Start with dry signal
 	outputL = inputL * float32(1.0-c.mix)
 	outputR = inputR * float32(1.0-c.mix)
-	
+
 	// Mix of input and feedback for delay lines
 	delayInputL := inputL + c.feedbackL*float32(c.feedback)
 	delayInputR := inputR + c.feedbackR*float32(c.feedback)
-	
+
 	// Write to delay lines
 	for v := 0; v < c.voices; v++ {
 		c.delayLinesL[v][c.delayIndex] = delayInputL
 		c.delayLinesR[v][c.delayIndex] = delayInputR
 	}
-	
+
 	// Process each voice
 	wetL := float32(0)
 	wetR := float32(0)
-	
+
 	for v := 0; v < c.voices; v++ {
 		// Get modulation from LFO (±1)
 		modulation := c.lfos[v].Process()
-		
+
 		// Calculate delay time in samples
 		delayMs := c.delay + c.depth*modulation
 		delaySamples := delayMs * c.sampleRate / 1000.0
-		
+
 		// Ensure delay is within bounds
 		delaySamples = math.Max(1.0, math.Min(float64(c.maxDelaySamples-1), delaySamples))
-		
+
 		// Calculate read position with linear interpolation
 		readPos := float64(c.delayIndex) - delaySamples
 		if readPos < 0 {
 			readPos += float64(c.maxDelaySamples)
 		}
-		
+
 		// Get integer and fractional parts
 		readIdx := int(readPos)
 		frac := float32(readPos - float64(readIdx))
-		
+
 		// Linear interpolation for left channel
 		idx1 := readIdx % c.maxDelaySamples
 		idx2 := (readIdx + 1) % c.maxDelaySamples
 		sampleL := c.delayLinesL[v][idx1]*(1-frac) + c.delayLinesL[v][idx2]*frac
-		
+
 		// Linear interpolation for right channel
 		sampleR := c.delayLinesR[v][idx1]*(1-frac) + c.delayLinesR[v][idx2]*frac
-		
+
 		// Apply stereo spread
 		// For multiple voices, pan them across the stereo field
 		if c.voices > 1 {
 			pan := (float64(v)/float64(c.voices-1) - 0.5) * c.spread
 			panL := float32(math.Cos((pan + 0.5) * math.Pi / 2))
 			panR := float32(math.Sin((pan + 0.5) * math.Pi / 2))
-			
+
 			wetL += sampleL * panL / float32(c.voices)
 			wetR += sampleR * panR / float32(c.voices)
 		} else {
@@ -196,18 +196,18 @@ func (c *Chorus) ProcessStereo(inputL, inputR float32) (outputL, outputR float32
 			wetR += sampleR
 		}
 	}
-	
+
 	// Store feedback
 	c.feedbackL = wetL
 	c.feedbackR = wetR
-	
+
 	// Add wet signal
 	outputL += wetL * float32(c.mix)
 	outputR += wetR * float32(c.mix)
-	
+
 	// Advance delay index
 	c.delayIndex = (c.delayIndex + 1) % c.maxDelaySamples
-	
+
 	return outputL, outputR
 }
 
@@ -234,12 +234,12 @@ func (c *Chorus) Reset() {
 			c.delayLinesR[v][i] = 0
 		}
 	}
-	
+
 	// Reset LFOs
 	for _, lfo := range c.lfos {
 		lfo.Reset()
 	}
-	
+
 	c.delayIndex = 0
 	c.feedbackL = 0
 	c.feedbackR = 0
