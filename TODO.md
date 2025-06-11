@@ -178,16 +178,19 @@ All examples build successfully and pass VST3 validation tests.
      - Polar coordinate display
    - [x] Comprehensive tests and benchmarks for all analysis tools
 
-6. **Utility DSP**
-   ```go
-   // pkg/dsp/utility/
-   - Noise generators (white, pink, brown)
-   - DC blocker
-   - Interpolation (cubic, sinc, all-pass)
-   - Crossfade utilities
-   - Window functions (Hann, Hamming, Blackman)
-   - Dithering algorithms
-   ```
+**6. Utility DSP** ✅ DONE
+   - [x] Gain utilities (gain.go)
+     - dB/linear conversion, soft/hard clipping, fade operations
+   - [x] Mix utilities (mix.go)
+     - Dry/wet mixing, crossfading (linear/cosine), summing
+   - [x] Pan utilities (pan.go)
+     - Mono-to-stereo, stereo width, balance, auto-pan with multiple laws
+   - [x] Interpolation (interpolation.go)
+     - Linear, cubic, Hermite, sinc, Lanczos, all-pass for delays
+   - [ ] Noise generators (white, pink, brown)
+   - [ ] DC blocker
+   - [ ] Window functions (moved to fft.go in analysis package)
+   - [ ] Dithering algorithms
 
 ### Phase 2: MIDI & Event Support 🚧 TODO
 
@@ -514,11 +517,13 @@ func (s *SimpleSynth) ProcessAudio(ctx *process.Context) {
 - Include usage comments
 - Ensure VST3 validation passes
 
-### Existing Examples Refactoring 🚧 TODO
-The current example plugins (gain, delay, filter) implement their own simplified versions of DSP functionality instead of using the comprehensive DSP library. These should be refactored to:
-1. **delay** - Should use `pkg/dsp/delay` package instead of implementing its own delay line
-2. **filter** - Should verify if it uses `pkg/dsp/filter` or implements its own
-3. Create new examples that showcase the DSP library features:
+### Existing Examples Refactoring ✅ DONE
+The example plugins have been refactored to use the DSP library:
+1. **delay** ✅ - Now uses `pkg/dsp/delay` package with the Line type
+2. **filter** ✅ - Already uses `pkg/dsp/filter` with MultiModeSVF 
+3. **gain** ✅ - Verified to follow best practices (no DSP library needed for simple gain)
+
+Next: Create new examples that showcase other DSP library features:
    - Dynamics examples using `pkg/dsp/dynamics`
    - Modulation examples using `pkg/dsp/modulation` 
    - Reverb examples using `pkg/dsp/reverb`

@@ -5,6 +5,7 @@ package main
 // #include "../../bridge/component.c"
 import "C"
 import (
+	"github.com/justyntemme/vst3go/pkg/dsp/delay"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
@@ -34,11 +35,9 @@ type DelayProcessor struct {
 	params *param.Registry
 	buses  *bus.Configuration
 
-	// Delay state - pre-allocated
-	delayBuffer [][]float32
-	bufferSize  int
-	writePos    int
-	sampleRate  float64
+	// Delay lines using DSP library
+	delayLines []*delay.Line
+	sampleRate float64
 }
 
 // Parameter IDs
@@ -52,8 +51,6 @@ func NewDelayProcessor() *DelayProcessor {
 	p := &DelayProcessor{
 		params:     param.NewRegistry(),
 		buses:      bus.NewStereoConfiguration(),
-		bufferSize: 48000, // 1 second at 48kHz
-		writePos:   0,
 		sampleRate: 48000,
 	}
 
@@ -86,14 +83,13 @@ func NewDelayProcessor() *DelayProcessor {
 
 func (p *DelayProcessor) Initialize(sampleRate float64, maxBlockSize int32) error {
 	p.sampleRate = sampleRate
-	p.bufferSize = int(sampleRate) // 1 second max delay
 
-	// Pre-allocate delay buffers for 2 channels
-	p.delayBuffer = make([][]float32, 2)
-	for i := range p.delayBuffer {
-		p.delayBuffer[i] = make([]float32, p.bufferSize)
+	// Create delay lines for 2 channels using DSP library
+	// 1 second max delay
+	p.delayLines = make([]*delay.Line, 2)
+	for i := range p.delayLines {
+		p.delayLines[i] = delay.New(1.0, sampleRate)
 	}
-	p.writePos = 0
 
 	return nil
 }
@@ -103,12 +99,6 @@ func (p *DelayProcessor) ProcessAudio(ctx *process.Context) {
 	delayTimeMs := ctx.ParamPlain(ParamDelayTime)
 	feedback := float32(ctx.ParamPlain(ParamFeedback) / 100.0) // Convert from percentage
 	mix := float32(ctx.ParamPlain(ParamMix) / 100.0)           // Convert from percentage
-
-	// Convert delay time to samples
-	delaySamples := int(delayTimeMs * p.sampleRate / 1000.0)
-	if delaySamples >= p.bufferSize {
-		delaySamples = p.bufferSize - 1
-	}
 
 	// Process each channel
 	numChannels := ctx.NumInputChannels()
@@ -121,31 +111,19 @@ func (p *DelayProcessor) ProcessAudio(ctx *process.Context) {
 
 	numSamples := ctx.NumSamples()
 
-	for sample := 0; sample < numSamples; sample++ {
-		// Calculate read position for this sample
-		readPos := p.writePos - delaySamples
-		if readPos < 0 {
-			readPos += p.bufferSize
-		}
-
-		for ch := 0; ch < numChannels; ch++ {
-			// Read from delay buffer
-			delayed := p.delayBuffer[ch][readPos]
-
+	for ch := 0; ch < numChannels; ch++ {
+		for sample := 0; sample < numSamples; sample++ {
 			// Get input sample
 			dry := ctx.Input[ch][sample]
+
+			// Read delayed sample
+			delayed := p.delayLines[ch].ReadMs(delayTimeMs)
 
 			// Mix dry and wet signals
 			ctx.Output[ch][sample] = dry*(1.0-mix) + delayed*mix
 
-			// Write to delay buffer with feedback
-			p.delayBuffer[ch][p.writePos] = dry + delayed*feedback
-		}
-
-		// Increment write position
-		p.writePos++
-		if p.writePos >= p.bufferSize {
-			p.writePos = 0
+			// Write to delay line with feedback
+			p.delayLines[ch].Write(dry + delayed*feedback)
 		}
 	}
 }
@@ -160,13 +138,12 @@ func (p *DelayProcessor) GetBuses() *bus.Configuration {
 
 func (p *DelayProcessor) SetActive(active bool) error {
 	if !active {
-		// Clear delay buffers when deactivated
-		for ch := range p.delayBuffer {
-			for i := range p.delayBuffer[ch] {
-				p.delayBuffer[ch][i] = 0
+		// Clear delay lines when deactivated
+		for _, line := range p.delayLines {
+			if line != nil {
+				line.Reset()
 			}
 		}
-		p.writePos = 0
 	}
 	return nil
 }

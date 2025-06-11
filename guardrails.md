@@ -1,6 +1,7 @@
 # vst3gi Development Guardrails
 
-Critical constraints for maintaining architectural integrity in development.
+Critical constraints for maintaining architectural integrity in development. Be sure to analyze the codebase 
+prior to implementing new features in a plugin to ensure we are not re-implementing features in specific plugins that are already available in the library
 
 ## 🚫 Architecture Anti-Patterns (NEVER)
 

@@ -244,6 +244,94 @@ func PhaseParameter(id uint32, name string) *Builder {
 		})
 }
 
+// FeedbackParameter creates a standard feedback parameter (0-100%)
+func FeedbackParameter(id uint32, name string) *Builder {
+	return New(id, name).
+		Range(0, 100).
+		Default(0).
+		Unit("%").
+		Formatter(PercentFormatter, PercentParser)
+}
+
+// ResonanceParameter creates a standard resonance parameter
+func ResonanceParameter(id uint32, name string) *Builder {
+	return New(id, name).
+		Range(0, 1).
+		Default(0.707).
+		Formatter(func(v float64) string {
+			return fmt.Sprintf("%.3f", v)
+		}, nil)
+}
+
+// DriveParameter creates a drive/saturation parameter (0-100%)
+func DriveParameter(id uint32, name string) *Builder {
+	return New(id, name).
+		Range(0, 100).
+		Default(0).
+		Unit("%").
+		Formatter(PercentFormatter, PercentParser)
+}
+
+// OutputLevelMeter creates a read-only output level meter
+func OutputLevelMeter(id uint32, name string) *Builder {
+	return New(id, name).
+		Range(-60, 0).
+		Default(-60).
+		Unit("dB").
+		Formatter(DecibelFormatter, nil). // No parser for read-only
+		Flags(IsReadOnly)
+}
+
+// ThresholdParameter creates a threshold parameter (typically for dynamics)
+func ThresholdParameter(id uint32, name string, minDB, maxDB, defaultDB float64) *Builder {
+	return New(id, name).
+		Range(minDB, maxDB).
+		Default(defaultDB).
+		Unit("dB").
+		Formatter(DecibelFormatter, DecibelParser)
+}
+
+// AttackParameter creates an attack time parameter
+func AttackParameter(id uint32, name string, maxMs float64) *Builder {
+	return TimeParameter(id, name, 0.1, maxMs, 10.0)
+}
+
+// ReleaseParameter creates a release time parameter
+func ReleaseParameter(id uint32, name string, maxMs float64) *Builder {
+	return TimeParameter(id, name, 1.0, maxMs, 100.0)
+}
+
+// RateParameter creates a rate parameter (Hz) for LFOs, etc.
+func RateParameter(id uint32, name string, minHz, maxHz, defaultHz float64) *Builder {
+	return New(id, name).
+		Range(minHz, maxHz).
+		Default(defaultHz).
+		Unit("Hz").
+		Formatter(func(v float64) string {
+			if v < 1.0 {
+				return fmt.Sprintf("%.3f Hz", v)
+			}
+			return fmt.Sprintf("%.2f Hz", v)
+		}, FrequencyParser)
+}
+
+// DepthParameter creates a depth/amount parameter (0-100%)
+func DepthParameter(id uint32, name string) *Builder {
+	return New(id, name).
+		Range(0, 100).
+		Default(50).
+		Unit("%").
+		Formatter(PercentFormatter, PercentParser)
+}
+
+// BypassParameter creates a bypass on/off switch
+func BypassParameter(id uint32, name string) *Builder {
+	return Choice(id, name, []ChoiceOption{
+		{Value: 0, Name: "Active"},
+		{Value: 1, Name: "Bypassed"},
+	})
+}
+
 // Helper function to parse float with error handling
 func parseFloat(s string) (float64, error) {
 	var value float64
