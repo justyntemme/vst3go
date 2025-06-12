@@ -6,6 +6,7 @@ package main
 import "C"
 import (
 	"github.com/justyntemme/vst3go/pkg/dsp/delay"
+	"github.com/justyntemme/vst3go/pkg/dsp/mix"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
@@ -98,34 +99,26 @@ func (p *DelayProcessor) ProcessAudio(ctx *process.Context) {
 	// Get parameter values
 	delayTimeMs := ctx.ParamPlain(ParamDelayTime)
 	feedback := float32(ctx.ParamPlain(ParamFeedback) / 100.0) // Convert from percentage
-	mix := float32(ctx.ParamPlain(ParamMix) / 100.0)           // Convert from percentage
-
-	// Process each channel
-	numChannels := ctx.NumInputChannels()
-	if ctx.NumOutputChannels() < numChannels {
-		numChannels = ctx.NumOutputChannels()
-	}
-	if numChannels > 2 {
-		numChannels = 2 // We only support stereo
-	}
+	mixAmount := float32(ctx.ParamPlain(ParamMix) / 100.0)     // Convert from percentage
 
 	numSamples := ctx.NumSamples()
 
-	for ch := 0; ch < numChannels; ch++ {
+	// Use process helper to handle stereo channels
+	ctx.ProcessStereo(func(ch int, input, output []float32) {
 		for sample := 0; sample < numSamples; sample++ {
 			// Get input sample
-			dry := ctx.Input[ch][sample]
+			dry := input[sample]
 
 			// Read delayed sample
 			delayed := p.delayLines[ch].ReadMs(delayTimeMs)
 
-			// Mix dry and wet signals
-			ctx.Output[ch][sample] = dry*(1.0-mix) + delayed*mix
+			// Mix dry and wet signals using the mix utility
+			output[sample] = mix.DryWet(dry, delayed, mixAmount)
 
 			// Write to delay line with feedback
 			p.delayLines[ch].Write(dry + delayed*feedback)
 		}
-	}
+	})
 }
 
 func (p *DelayProcessor) GetParameters() *param.Registry {

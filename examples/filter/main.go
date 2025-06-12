@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/justyntemme/vst3go/pkg/dsp/filter"
+	"github.com/justyntemme/vst3go/pkg/dsp/mix"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
@@ -120,22 +121,16 @@ func (p *FilterProcessor) Initialize(sampleRate float64, maxBlockSize int32) err
 }
 
 func (p *FilterProcessor) ProcessAudio(ctx *process.Context) {
-	numChannels := ctx.NumInputChannels()
-	if ctx.NumOutputChannels() < numChannels {
-		numChannels = ctx.NumOutputChannels()
-	}
-
-	numSamples := ctx.NumSamples()
-
 	// Get parameter values
 	filterType := ctx.ParamPlain(ParamFilterType)
 	cutoff := ctx.ParamPlain(ParamCutoff)
 	resonance := ctx.ParamPlain(ParamResonance)
-	mix := ctx.ParamPlain(ParamMix) / 100.0 // Convert percentage to 0-1
+	mixAmount := float32(ctx.ParamPlain(ParamMix) / 100.0) // Convert percentage to 0-1
 
 	// Check if we have valid input
-	if numChannels == 0 || numSamples == 0 {
-		p.debugLogger.Printf("WARNING: No channels (%d) or samples (%d) to process!", numChannels, numSamples)
+	if ctx.GetNumChannels() == 0 || ctx.NumSamples() == 0 {
+		p.debugLogger.Printf("WARNING: No channels (%d) or samples (%d) to process!", 
+			ctx.GetNumChannels(), ctx.NumSamples())
 		return
 	}
 
@@ -143,30 +138,18 @@ func (p *FilterProcessor) ProcessAudio(ctx *process.Context) {
 	p.svFilter.SetFrequencyAndQ(ctx.SampleRate, cutoff, resonance)
 	p.svFilter.SetMode(filterType / 3.0) // Convert 0-3 to 0-1
 
-	// Process each channel
-	for ch := 0; ch < numChannels; ch++ {
-		input := ctx.Input[ch]
-		output := ctx.Output[ch]
-
-		if len(input) != numSamples || len(output) != numSamples {
-			p.debugLogger.Printf("WARNING: Buffer size mismatch! input=%d, output=%d, expected=%d",
-				len(input), len(output), numSamples)
-			continue
-		}
-
-		// Copy input to output first
-		copy(output, input)
+	// Process each channel using the helper
+	ctx.ProcessChannels(func(ch int, input, output []float32) {
+		// Create a temporary buffer for the filtered signal
+		filtered := make([]float32, len(input))
+		copy(filtered, input)
 
 		// Apply filter
-		p.svFilter.Process(output, ch)
+		p.svFilter.Process(filtered, ch)
 
-		// Apply mix (wet/dry blend)
-		if mix < 1.0 {
-			for i := range output {
-				output[i] = input[i]*(1.0-float32(mix)) + output[i]*float32(mix)
-			}
-		}
-	}
+		// Apply mix using the DSP library
+		mix.DryWetBufferTo(input, filtered, mixAmount, output)
+	})
 }
 
 func (p *FilterProcessor) GetParameters() *param.Registry {

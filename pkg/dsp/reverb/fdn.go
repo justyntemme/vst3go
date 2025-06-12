@@ -251,6 +251,25 @@ func (f *FDN) updateInternalParameters() {
 	// Apply diffusion by mixing with identity matrix
 	// Low diffusion = more parallel delays, high diffusion = more mixing
 	diffusionMix := f.diffusion
+	
+	// Create base Hadamard matrix
+	f.createHadamardMatrix()
+	
+	// Apply decay and diffusion scaling to feedback matrix
+	for i := 0; i < f.numDelays; i++ {
+		for j := 0; j < f.numDelays; j++ {
+			// Store original Hadamard value
+			hadamardValue := f.feedbackMatrix[i][j]
+			
+			if i == j {
+				// Mix between identity (no diffusion) and Hadamard (full diffusion)
+				f.feedbackMatrix[i][j] = decayScale * ((1.0-diffusionMix) + diffusionMix*hadamardValue)
+			} else {
+				// Off-diagonal elements scaled by diffusion
+				f.feedbackMatrix[i][j] = decayScale * diffusionMix * hadamardValue
+			}
+		}
+	}
 }
 
 // Process processes a mono input sample

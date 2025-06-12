@@ -1,6 +1,8 @@
 // Package bus provides VST3 audio bus configuration and management.
 package bus
 
+import "fmt"
+
 // MediaType represents the type of bus
 type MediaType int32
 
@@ -143,4 +145,83 @@ func (c *Configuration) AddEventBus(direction Direction, name string) {
 		BusType:      TypeMain,
 		IsActive:     true,
 	})
+}
+
+// SetBusActive activates or deactivates a specific bus
+func (c *Configuration) SetBusActive(mediaType MediaType, direction Direction, index int32, active bool) error {
+	buses := c.audioBuses
+	if mediaType == MediaTypeEvent {
+		buses = c.eventBuses
+	}
+
+	busIndex := int32(0)
+	for i := range buses {
+		if buses[i].Direction == direction {
+			if busIndex == index {
+				buses[i].IsActive = active
+				return nil
+			}
+			busIndex++
+		}
+	}
+
+	return fmt.Errorf("bus not found: mediaType=%d, direction=%d, index=%d", mediaType, direction, index)
+}
+
+// GetActiveInputChannelCount returns the total number of active input channels
+func (c *Configuration) GetActiveInputChannelCount() int32 {
+	count := int32(0)
+	for _, bus := range c.audioBuses {
+		if bus.Direction == DirectionInput && bus.IsActive {
+			count += bus.ChannelCount
+		}
+	}
+	return count
+}
+
+// GetActiveOutputChannelCount returns the total number of active output channels
+func (c *Configuration) GetActiveOutputChannelCount() int32 {
+	count := int32(0)
+	for _, bus := range c.audioBuses {
+		if bus.Direction == DirectionOutput && bus.IsActive {
+			count += bus.ChannelCount
+		}
+	}
+	return count
+}
+
+// GetActiveBuses returns all active buses of a given type and direction
+func (c *Configuration) GetActiveBuses(mediaType MediaType, direction Direction) []Info {
+	buses := c.audioBuses
+	if mediaType == MediaTypeEvent {
+		buses = c.eventBuses
+	}
+
+	var active []Info
+	for _, bus := range buses {
+		if bus.Direction == direction && bus.IsActive {
+			active = append(active, bus)
+		}
+	}
+	return active
+}
+
+// HasSidechain returns true if the configuration has a sidechain input
+func (c *Configuration) HasSidechain() bool {
+	for _, bus := range c.audioBuses {
+		if bus.Direction == DirectionInput && bus.BusType == TypeAux {
+			return true
+		}
+	}
+	return false
+}
+
+// GetSidechainBus returns the first sidechain (aux input) bus if it exists
+func (c *Configuration) GetSidechainBus() *Info {
+	for i, bus := range c.audioBuses {
+		if bus.Direction == DirectionInput && bus.BusType == TypeAux {
+			return &c.audioBuses[i]
+		}
+	}
+	return nil
 }

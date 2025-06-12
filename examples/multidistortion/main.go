@@ -6,9 +6,9 @@ package main
 import "C"
 import (
 	"fmt"
-	"math"
 
 	"github.com/justyntemme/vst3go/pkg/dsp/distortion"
+	"github.com/justyntemme/vst3go/pkg/dsp/gain"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
@@ -257,15 +257,10 @@ func (p *MultiDistortionProcessor) ProcessAudio(ctx *process.Context) {
 	distType := int(ctx.ParamPlain(ParamDistortionType))
 	drive := float32(ctx.ParamPlain(ParamDrive) / 100.0)
 	mix := float32(ctx.ParamPlain(ParamMix) / 100.0)
-	outputGain := ctx.ParamPlain(ParamOutput)
+	outputGain := float32(ctx.ParamPlain(ParamOutput))
 
-	// Convert output gain from dB to linear
-	outputLinear := float32(1.0)
-	if outputGain > -80 {
-		outputLinear = float32(math.Pow(10.0, outputGain/20.0))
-	} else {
-		outputLinear = 0.0
-	}
+	// Convert output gain from dB to linear using DSP library
+	outputLinear := gain.DbToLinear32(outputGain)
 
 	// Process based on distortion type
 	switch distType {

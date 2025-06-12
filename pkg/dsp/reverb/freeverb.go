@@ -179,7 +179,7 @@ func (f *Freeverb) update() {
 // ProcessStereo processes stereo input through the reverb
 func (f *Freeverb) ProcessStereo(inputL, inputR float32) (outputL, outputR float32) {
 	// Mix input to mono for reverb processing
-	input := (inputL + inputR) * f.gain
+	input := (inputL + inputR) * float32(f.gain)
 
 	// Initialize output accumulators
 	var outL, outR float32

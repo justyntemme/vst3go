@@ -222,24 +222,37 @@ All examples build successfully and pass VST3 validation tests.
    - Sample-accurate event processing
    ```
 
-### Phase 3: Advanced Bus Support 🔜
+### Phase 3: Advanced Bus Support ✅ DONE
 
 **Goal**: Professional routing capabilities
 
-1. **Multi-channel Configurations**
-   - Stereo, (others will be implemented post release)
+1. **Multi-channel Configurations** ✅
+   - Stereo, Mono, Quad, 5.1, 7.1 support
    - Side-chain input support
    - Multiple input/output buses
    - Dynamic bus activation
 
-2. **Bus Templates**
+2. **Bus Templates** ✅
    ```go
-   // Common configurations
+   // Common configurations implemented:
    - EffectStereo (1 in, 1 out)
    - EffectStereoSidechain (2 in, 1 out)
    - SurroundPanner (1 in, 1 surround out)
    - MixerChannel (1 in, multiple out)
+   - MonoToStereo, StereoToMono
+   - DualMono, MidSideProcessor
+   - Surround5_1Effect, Surround7_1Effect
+   - Vocoder, Analyzer, Generator
+   - MIDIEffect, Crossover, Splitter
    ```
+
+3. **Implementation Details** ✅
+   - Created `pkg/framework/bus/builder.go` with fluent API
+   - Created `pkg/framework/bus/templates.go` with common configurations
+   - Enhanced `pkg/framework/bus/bus.go` with dynamic activation
+   - Created `pkg/framework/process/multibus.go` for multi-bus processing
+   - Created example plugins: `sidechain` and `surround`
+   - Comprehensive test coverage in `bus_test.go`, `builder_test.go`, `templates_test.go`
 
 ### Phase 4: Developer Tools & Experience 🔜
 
@@ -346,7 +359,7 @@ func (s *SimpleSynth) ProcessAudio(ctx *process.Context) {
 2. **Parameter Change Buffer Size** (`pkg/framework/process/context.go:42`)
    - Currently hardcoded to 128 parameter changes
    - Should be configurable or dynamically sized based on plugin needs
-   - Add bounds checking and warning when limit exceeded
+   - Add bounds checking and warning when limit exceeded - How can we do this while keeping allocations at start and not during processing
 
 3. **Debug Output Cleanup**
    - Multiple `fmt.Printf` statements throughout parameter handling

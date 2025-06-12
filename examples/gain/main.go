@@ -7,6 +7,7 @@ import "C"
 import (
 	"math"
 
+	"github.com/justyntemme/vst3go/pkg/dsp/gain"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
@@ -77,44 +78,36 @@ func (p *GainProcessor) Initialize(sampleRate float64, maxBlockSize int32) error
 
 func (p *GainProcessor) ProcessAudio(ctx *process.Context) {
 	// Get gain in dB
-	gainDB := ctx.ParamPlain(ParamGain)
+	gainDB := float32(ctx.ParamPlain(ParamGain))
 
-	// Convert to linear
-	gain := float32(math.Pow(10.0, gainDB/20.0))
+	// Convert to linear using the DSP library
+	gainLinear := gain.DbToLinear32(gainDB)
 
 	// Process and measure
 	peak := float32(0)
 
-	// Process each channel
-	numChannels := ctx.NumInputChannels()
-	if ctx.NumOutputChannels() < numChannels {
-		numChannels = ctx.NumOutputChannels()
-	}
+	// Use the process helper to process all channels
+	ctx.ProcessChannels(func(ch int, input, output []float32) {
+		// Copy input to output
+		copy(output, input)
+		
+		// Apply gain using the DSP library
+		gain.ApplyBuffer(output, gainLinear)
 
-	for ch := 0; ch < numChannels; ch++ {
-		input := ctx.Input[ch]
-		output := ctx.Output[ch]
-
-		// Apply gain and find peak
-		for i := range input {
-			sample := input[i] * gain
-			output[i] = sample
-
+		// Find peak
+		for _, sample := range output {
 			if abs := float32(math.Abs(float64(sample))); abs > peak {
 				peak = abs
 			}
 		}
-	}
+	})
 
-	// Update output meter
-	peakDB := float64(-60) // minimum
-	if peak > 0 {
-		peakDB = 20.0 * math.Log10(float64(peak))
-		if peakDB < -60 {
-			peakDB = -60
-		}
+	// Update output meter using DSP library conversion
+	peakDB := gain.LinearToDb32(peak)
+	if peakDB < -60 {
+		peakDB = -60
 	}
-	p.params.Get(ParamOutputLevel).SetValue(p.params.Get(ParamOutputLevel).Normalize(peakDB))
+	p.params.Get(ParamOutputLevel).SetValue(p.params.Get(ParamOutputLevel).Normalize(float64(peakDB)))
 }
 
 func (p *GainProcessor) GetParameters() *param.Registry {

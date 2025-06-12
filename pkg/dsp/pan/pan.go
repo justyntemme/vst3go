@@ -117,7 +117,7 @@ func balancedPan(pan float32) (left, right float32) {
 	// Apply center compensation
 	// At center, both channels are at 0.707 (-3dB)
 	// We want -4.5dB (0.595) instead
-	centerGain := float32(0.595 / 0.707)
+	// centerGain := float32(0.595 / 0.707)
 	
 	// Interpolate compensation based on pan position
 	compensation := 1.0 - (pan*pan)*0.159 // Approximation for smooth transition
