@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/justyntemme/vst3go/pkg/framework/param"
+	"github.com/justyntemme/vst3go/pkg/midi"
 )
 
 // ParameterChange represents a parameter change at a specific sample offset
@@ -123,6 +124,9 @@ type Context struct {
 
 	// Transport and timing information
 	Transport *TransportInfo
+
+	// MIDI event processing
+	eventBuffer *midi.EventBuffer
 }
 
 // NewContext creates a new process context with pre-allocated buffers
@@ -134,6 +138,7 @@ func NewContext(maxBlockSize int, params *param.Registry) *Context {
 		paramChanges: make([]ParameterChange, 128), // Pre-allocate space for parameter changes
 		changeCount:  0,
 		Transport:    &TransportInfo{}, // Initialize transport info
+		eventBuffer:  midi.NewEventBuffer(),
 	}
 }
 
@@ -264,4 +269,60 @@ func (c *Context) ApplyParameterChange(change ParameterChange) {
 	if param := c.params.Get(change.ParamID); param != nil {
 		param.SetValue(change.Value)
 	}
+}
+
+// Event processing methods
+
+// AddInputEvent adds a MIDI event to the input queue
+func (c *Context) AddInputEvent(event midi.Event) {
+	c.eventBuffer.AddInputEvent(event)
+}
+
+// AddOutputEvent adds a MIDI event to the output queue
+func (c *Context) AddOutputEvent(event midi.Event) {
+	c.eventBuffer.AddOutputEvent(event)
+}
+
+// GetInputEvents returns input events in the specified sample range
+func (c *Context) GetInputEvents(startSample, endSample int32) []midi.Event {
+	return c.eventBuffer.GetInputEvents(startSample, endSample)
+}
+
+// GetAllInputEvents returns all input events for the current block
+func (c *Context) GetAllInputEvents() []midi.Event {
+	return c.eventBuffer.GetInputEvents(0, int32(c.NumSamples()))
+}
+
+// GetOutputEvents returns all output events generated during processing
+func (c *Context) GetOutputEvents() []midi.Event {
+	return c.eventBuffer.GetOutputEvents()
+}
+
+// ClearInputEvents clears the input event queue
+func (c *Context) ClearInputEvents() {
+	c.eventBuffer.ClearInput()
+}
+
+// ClearOutputEvents clears the output event queue
+func (c *Context) ClearOutputEvents() {
+	c.eventBuffer.ClearOutput()
+}
+
+// ClearAllEvents clears both input and output event queues
+func (c *Context) ClearAllEvents() {
+	c.eventBuffer.ClearAll()
+}
+
+// ProcessEvents processes events through an event processor for sample-accurate processing
+func (c *Context) ProcessEvents(processor midi.EventProcessor, startSample, endSample int32) {
+	events := c.GetInputEvents(startSample, endSample)
+	for _, event := range events {
+		processor.ProcessEvent(event)
+	}
+}
+
+// HasInputEvents returns true if there are input events in the current block
+func (c *Context) HasInputEvents() bool {
+	events := c.GetAllInputEvents()
+	return len(events) > 0
 }
