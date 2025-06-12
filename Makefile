@@ -53,26 +53,48 @@ build-64:
 	@echo "All 64-bit plugins built successfully"
 
 
-# Install all example VST3 plugins to user's VST3 directory
-install: build
-	@echo "Installing all example VST3 plugins to ~/.vst3"
+# Install VST3 plugin(s) to user's VST3 directory
+install: PLUGIN_NAME ?=
+install:
 	@mkdir -p ~/.vst3
-	@for dir in $(EXAMPLES_DIR)/*; do \
-		if [ -d "$$dir" ] && [ -f "$$dir/main.go" ]; then \
-			example=$$(basename $$dir); \
-			echo "Creating and installing $$example.vst3 bundle"; \
-			rm -rf $(BUILD_DIR)/$$example.vst3; \
-			if [ -f "$(BUILD_DIR)/$$example.$(SO_EXT)" ]; then \
-				mkdir -p $(BUILD_DIR)/$$example.vst3/Contents/$(VST3_ARCH_64); \
-				cp $(BUILD_DIR)/$$example.$(SO_EXT) $(BUILD_DIR)/$$example.vst3/Contents/$(VST3_ARCH_64)/; \
-				chmod +x $(BUILD_DIR)/$$example.vst3/Contents/$(VST3_ARCH_64)/$$example.$(SO_EXT); \
+	@if [ -z "$(PLUGIN_NAME)" ]; then \
+		echo "Installing all example VST3 plugins to ~/.vst3"; \
+		$(MAKE) build; \
+		for dir in $(EXAMPLES_DIR)/*; do \
+			if [ -d "$$dir" ] && [ -f "$$dir/main.go" ]; then \
+				example=$$(basename $$dir); \
+				echo "Creating and installing $$example.vst3 bundle"; \
+				rm -rf $(BUILD_DIR)/$$example.vst3; \
+				if [ -f "$(BUILD_DIR)/$$example.$(SO_EXT)" ]; then \
+					mkdir -p $(BUILD_DIR)/$$example.vst3/Contents/$(VST3_ARCH_64); \
+					cp $(BUILD_DIR)/$$example.$(SO_EXT) $(BUILD_DIR)/$$example.vst3/Contents/$(VST3_ARCH_64)/; \
+					chmod +x $(BUILD_DIR)/$$example.vst3/Contents/$(VST3_ARCH_64)/$$example.$(SO_EXT); \
+				fi; \
+				rm -rf ~/.vst3/$$example.vst3; \
+				cp -r $(BUILD_DIR)/$$example.vst3 ~/.vst3/; \
+				echo "Installed: ~/.vst3/$$example.vst3"; \
 			fi; \
-			rm -rf ~/.vst3/$$example.vst3; \
-			cp -r $(BUILD_DIR)/$$example.vst3 ~/.vst3/; \
-			echo "Installed: ~/.vst3/$$example.vst3"; \
+		done; \
+		echo "All example plugins installed successfully"; \
+	else \
+		echo "Installing $(PLUGIN_NAME).vst3 to ~/.vst3"; \
+		if [ ! -d "$(EXAMPLES_DIR)/$(PLUGIN_NAME)" ]; then \
+			echo "Error: Plugin '$(PLUGIN_NAME)' not found in examples directory"; \
+			exit 1; \
 		fi; \
-	done
-	@echo "All example plugins installed successfully"
+		echo "Building $(PLUGIN_NAME) plugin (64-bit)"; \
+		GOARCH=amd64 CGO_CFLAGS="$(CFLAGS_64)" CGO_LDFLAGS="$(LDFLAGS_64)" go build -buildvcs=false -buildmode=c-shared \
+			-o $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT) \
+			./$(EXAMPLES_DIR)/$(PLUGIN_NAME) || exit 1; \
+		echo "Creating VST3 bundle for $(PLUGIN_NAME)"; \
+		rm -rf $(BUILD_DIR)/$(PLUGIN_NAME).vst3; \
+		mkdir -p $(BUILD_DIR)/$(PLUGIN_NAME).vst3/Contents/$(VST3_ARCH_64); \
+		cp $(BUILD_DIR)/$(PLUGIN_NAME).$(SO_EXT) $(BUILD_DIR)/$(PLUGIN_NAME).vst3/Contents/$(VST3_ARCH_64)/; \
+		chmod +x $(BUILD_DIR)/$(PLUGIN_NAME).vst3/Contents/$(VST3_ARCH_64)/$(PLUGIN_NAME).$(SO_EXT); \
+		rm -rf ~/.vst3/$(PLUGIN_NAME).vst3; \
+		cp -r $(BUILD_DIR)/$(PLUGIN_NAME).vst3 ~/.vst3/; \
+		echo "Installed: ~/.vst3/$(PLUGIN_NAME).vst3"; \
+	fi
 
 # Create VST3 bundle for a specific plugin
 bundle: PLUGIN_NAME ?= gain
@@ -197,6 +219,7 @@ help:
 	@echo "  make build        - Build all example plugins (64-bit only)"
 	@echo "  make build-64     - Build 64-bit plugins"
 	@echo "  make install      - Build and install all example plugins to ~/.vst3"
+	@echo "  make install PLUGIN_NAME=... - Build and install specific plugin to ~/.vst3"
 	@echo "  make bundle       - Create VST3 bundle for a plugin (use PLUGIN_NAME=...)"
 	@echo "  make clean        - Remove all build artifacts"
 	@echo "  make list-examples - List all discovered example plugins"
@@ -222,6 +245,7 @@ help:
 	@echo "Examples:"
 	@echo "  make                         # Build all plugins"
 	@echo "  make install                 # Build and install all plugins"
+	@echo "  make install PLUGIN_NAME=simplesynth  # Build and install specific plugin"
 	@echo "  make test-validate PLUGIN_NAME=delay  # Test specific plugin"
 	@echo ""
 	@echo "  make help         - Show this help message"

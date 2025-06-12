@@ -152,7 +152,7 @@ int32_t getParameterChangeCount(void* inputParameterChanges) {
     }
     
     int32_t count = changes->lpVtbl->getParameterCount(changes);
-    DBG_LOG("getParameterChangeCount: returning %d parameters", count);
+    // DBG_LOG("getParameterChangeCount: returning %d parameters", count);
     return count;
 }
 
@@ -236,4 +236,56 @@ int32_t getPoint(void* paramQueue, int32_t index, int32_t* sampleOffset, double*
     }
     
     return result;
+}
+
+// Event processing helper functions
+int32_t getEventCount(void* eventList) {
+    if (!eventList) {
+        DBG_LOG("getEventCount: eventList is NULL");
+        return 0;
+    }
+    
+    struct Steinberg_Vst_IEventList* list = (struct Steinberg_Vst_IEventList*)eventList;
+    if (!list->lpVtbl || !list->lpVtbl->getEventCount) {
+        DBG_LOG("getEventCount: vtable or method is NULL");
+        return 0;
+    }
+    
+    int32_t count = list->lpVtbl->getEventCount(list);
+    DBG_LOG("getEventCount: returning %d events", count);
+    return count;
+}
+
+int32_t getEvent(void* eventList, int32_t index, struct Steinberg_Vst_Event* event) {
+    if (!eventList || !event) {
+        DBG_LOG("getEvent: eventList or event is NULL");
+        return 1; // kResultFalse
+    }
+    
+    struct Steinberg_Vst_IEventList* list = (struct Steinberg_Vst_IEventList*)eventList;
+    if (!list->lpVtbl || !list->lpVtbl->getEvent) {
+        DBG_LOG("getEvent: vtable or method is NULL");
+        return 1; // kResultFalse
+    }
+    
+    Steinberg_tresult result = list->lpVtbl->getEvent(list, index, event);
+    if (result == 0) { // kResultOk
+        DBG_LOG("getEvent: got event at index %d, type=%d", index, event->type);
+    } else {
+        DBG_LOG("getEvent: failed with result=%d", result);
+    }
+    
+    return result;
+}
+
+uint16_t getEventType(struct Steinberg_Vst_Event* event) {
+    return event->type;
+}
+
+struct Steinberg_Vst_NoteOnEvent* getNoteOnEvent(struct Steinberg_Vst_Event* event) {
+    return &event->Steinberg_Vst_Event_noteOn;
+}
+
+struct Steinberg_Vst_NoteOffEvent* getNoteOffEvent(struct Steinberg_Vst_Event* event) {
+    return &event->Steinberg_Vst_Event_noteOff;
 }

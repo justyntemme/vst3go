@@ -18,4 +18,11 @@ uint32_t getParameterId(void* paramQueue);
 int32_t getPointCount(void* paramQueue);
 int32_t getPoint(void* paramQueue, int32_t index, int32_t* sampleOffset, double* value);
 
+// Event processing helper functions
+int32_t getEventCount(void* eventList);
+int32_t getEvent(void* eventList, int32_t index, struct Steinberg_Vst_Event* event);
+uint16_t getEventType(struct Steinberg_Vst_Event* event);
+struct Steinberg_Vst_NoteOnEvent* getNoteOnEvent(struct Steinberg_Vst_Event* event);
+struct Steinberg_Vst_NoteOffEvent* getNoteOffEvent(struct Steinberg_Vst_Event* event);
+
 #endif // VST3GO_BRIDGE_H

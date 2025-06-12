@@ -13,6 +13,7 @@ import (
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/process"
 	"github.com/justyntemme/vst3go/pkg/framework/state"
+	"github.com/justyntemme/vst3go/pkg/midi"
 	"github.com/justyntemme/vst3go/pkg/vst3"
 )
 
@@ -306,6 +307,11 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 	// Reset parameter changes for this processing block
 	c.processCtx.ResetParameterChanges()
 
+	// Process input events (MIDI)
+	if processData.inputEvents != nil {
+		c.processInputEvents(processData.inputEvents)
+	}
+
 	// Collect parameter changes for sample-accurate automation
 	if processData.inputParameterChanges != nil {
 		// Get parameter count using C helper function
@@ -354,6 +360,61 @@ func (c *componentImpl) Process(data unsafe.Pointer) error {
 
 func (c *componentImpl) GetTailSamples() uint32 {
 	return uint32(c.processor.GetTailSamples())
+}
+
+// processInputEvents processes MIDI events from the host
+func (c *componentImpl) processInputEvents(eventList *C.struct_Steinberg_Vst_IEventList) {
+	if eventList == nil {
+		return
+	}
+
+	// Get event count using helper
+	eventCount := C.getEventCount(unsafe.Pointer(eventList))
+	if eventCount <= 0 {
+		return
+	}
+
+	// Process each event
+	for i := C.int32_t(0); i < eventCount; i++ {
+		var event C.struct_Steinberg_Vst_Event
+		if C.getEvent(unsafe.Pointer(eventList), i, &event) == 0 { // kResultOk
+			c.processSingleEvent(&event)
+		}
+	}
+}
+
+// processSingleEvent converts a VST3 event to our MIDI event format
+func (c *componentImpl) processSingleEvent(event *C.struct_Steinberg_Vst_Event) {
+	// Use helper function to get event type
+	eventType := C.getEventType(event)
+	
+	switch eventType {
+	case C.Steinberg_Vst_Event_EventTypes_kNoteOnEvent:
+		// Note On event - use helper to get the event data
+		noteOn := C.getNoteOnEvent(event)
+		c.processCtx.AddInputEvent(midi.NoteOnEvent{
+			BaseEvent: midi.BaseEvent{
+				EventChannel: uint8(noteOn.channel),
+				Offset:       int32(event.sampleOffset),
+			},
+			NoteNumber: uint8(noteOn.pitch),
+			Velocity:   uint8(noteOn.velocity * 127), // VST3 uses 0-1, MIDI uses 0-127
+		})
+
+	case C.Steinberg_Vst_Event_EventTypes_kNoteOffEvent:
+		// Note Off event - use helper to get the event data
+		noteOff := C.getNoteOffEvent(event)
+		c.processCtx.AddInputEvent(midi.NoteOffEvent{
+			BaseEvent: midi.BaseEvent{
+				EventChannel: uint8(noteOff.channel),
+				Offset:       int32(event.sampleOffset),
+			},
+			NoteNumber: uint8(noteOff.pitch),
+			Velocity:   uint8(noteOff.velocity * 127),
+		})
+
+	// Add more event types as needed
+	}
 }
 
 // IEditController implementation
