@@ -21,8 +21,8 @@ type GainPlugin struct{}
 func (g *GainPlugin) GetInfo() plugin.Info {
 	return plugin.Info{
 		ID:       "com.vst3go.examples.gain",
-		Name:     "Simple Gain",
-		Version:  "1.0.0",
+		Name:     "Gain",
+		Version:  "2.0.0",
 		Vendor:   "VST3Go Examples",
 		Category: "Fx",
 	}
@@ -36,27 +36,43 @@ func (g *GainPlugin) CreateProcessor() vst3plugin.Processor {
 type GainProcessor struct {
 	params *param.Registry
 	buses  *bus.Configuration
+	
+	// Optional parameter smoothing
+	smoother *param.ParameterSmoother
+	sampleRate float64
 }
 
 const (
 	ParamGain = iota
 	ParamOutputLevel
+	ParamBypass
+	ParamSmoothingEnabled
+	ParamSmoothingTime
+	
+	// Gain range constants
+	minGainDB = -24.0
+	maxGainDB = 24.0
+	
+	// Smoothing time range (ms)
+	minSmoothingMs = 0.1
+	maxSmoothingMs = 100.0
+	defaultSmoothingMs = 5.0
 )
 
 func NewGainProcessor() *GainProcessor {
 	p := &GainProcessor{
 		params: param.NewRegistry(),
 		buses:  bus.NewStereoConfiguration(),
+		smoother: param.NewParameterSmoother(),
 	}
 
 	// Add parameters
-	p.params.Add(
-		param.New(ParamGain, "Gain").
-			Range(-24, 24).
-			Default(0).
-			Formatter(param.DecibelFormatter, param.DecibelParser).
-			Build(),
-	)
+	gainParam := param.New(ParamGain, "Gain").
+		Range(minGainDB, maxGainDB).
+		Default(0).
+		Formatter(param.DecibelFormatter, param.DecibelParser).
+		Build()
+	p.params.Add(gainParam)
 
 	// Add output meter (read-only)
 	p.params.Add(
@@ -67,42 +83,118 @@ func NewGainProcessor() *GainProcessor {
 			Flags(param.IsReadOnly).
 			Build(),
 	)
+	
+	// Add bypass parameter
+	p.params.Add(
+		param.BypassParameter(ParamBypass, "Bypass").Build(),
+	)
+	
+	// Add smoothing control parameters
+	p.params.Add(
+		param.New(ParamSmoothingEnabled, "Enable Smoothing").
+			Range(0, 1).
+			Default(0).
+			Steps(1).
+			Build(),
+	)
+	
+	p.params.Add(
+		param.New(ParamSmoothingTime, "Smoothing Time").
+			Range(minSmoothingMs, maxSmoothingMs).
+			Default(defaultSmoothingMs).
+			Unit("ms").
+			Build(),
+	)
+	
+	// Add gain to smoother (will only be used if smoothing is enabled)
+	p.smoother.Add(ParamGain, gainParam, param.ExponentialSmoothing, 0.999)
 
 	return p
 }
 
 func (p *GainProcessor) Initialize(sampleRate float64, maxBlockSize int32) error {
-	// Nothing to initialize for simple gain
+	p.sampleRate = sampleRate
+	
+	// Update smoother sample rate
+	if sp, ok := p.smoother.Get(ParamGain); ok {
+		smoothingTime := p.params.Get(ParamSmoothingTime).GetValue()
+		sp.UpdateSampleRate(sampleRate, smoothingTime)
+	}
+	
 	return nil
 }
 
 func (p *GainProcessor) ProcessAudio(ctx *process.Context) {
-	// Get gain in dB
-	gainDB := float32(ctx.ParamPlain(ParamGain))
-
-	// Convert to linear using the DSP library
-	gainLinear := gain.DbToLinear32(gainDB)
+	// Handle bypass
+	if bypassParam := p.params.Get(ParamBypass); bypassParam != nil && bypassParam.GetValue() > 0.5 {
+		// Copy input to output
+		for ch := 0; ch < ctx.NumInputChannels() && ch < ctx.NumOutputChannels(); ch++ {
+			copy(ctx.Output[ch], ctx.Input[ch])
+		}
+		return
+	}
+	
+	// Check if smoothing is enabled
+	smoothingEnabled := p.params.Get(ParamSmoothingEnabled).GetValue() > 0.5
+	
+	// Handle parameter changes
+	for _, change := range ctx.GetParameterChanges() {
+		switch change.ParamID {
+		case ParamGain:
+			if smoothingEnabled {
+				p.smoother.SetValue(ParamGain, change.Value)
+			}
+		case ParamSmoothingTime:
+			// Update smoothing time
+			if sp, ok := p.smoother.Get(ParamGain); ok {
+				sp.UpdateSampleRate(p.sampleRate, change.Value)
+			}
+		}
+	}
 
 	// Process and measure
 	peak := float32(0)
 
-	// Use the process helper to process all channels
-	ctx.ProcessChannels(func(ch int, input, output []float32) {
-		// Copy input to output
-		copy(output, input)
-		
-		// Apply gain using the DSP library
-		gain.ApplyBuffer(output, gainLinear)
-
-		// Find peak
-		for _, sample := range output {
-			if abs := float32(math.Abs(float64(sample))); abs > peak {
-				peak = abs
+	if smoothingEnabled {
+		// Process with smoothing (sample-by-sample)
+		for ch := 0; ch < ctx.NumInputChannels() && ch < ctx.NumOutputChannels(); ch++ {
+			input := ctx.Input[ch]
+			output := ctx.Output[ch]
+			
+			for i := 0; i < ctx.NumSamples(); i++ {
+				// Get smoothed gain value
+				gainNorm := p.smoother.GetSmoothed(ParamGain)
+				gainDB := minGainDB + gainNorm * (maxGainDB - minGainDB)
+				gainLinear := gain.DbToLinear32(float32(gainDB))
+				
+				// Apply gain
+				output[i] = gain.Apply(input[i], gainLinear)
+				
+				// Track peak
+				if abs := float32(math.Abs(float64(output[i]))); abs > peak {
+					peak = abs
+				}
 			}
 		}
-	})
+	} else {
+		// Process without smoothing (buffer-based, more efficient)
+		gainDB := float32(ctx.ParamPlain(ParamGain))
+		gainLinear := gain.DbToLinear32(gainDB)
+		
+		ctx.ProcessChannels(func(ch int, input, output []float32) {
+			copy(output, input)
+			gain.ApplyBuffer(output, gainLinear)
+			
+			// Find peak
+			for _, sample := range output {
+				if abs := float32(math.Abs(float64(sample))); abs > peak {
+					peak = abs
+				}
+			}
+		})
+	}
 
-	// Update output meter using DSP library conversion
+	// Update output meter
 	peakDB := gain.LinearToDb32(peak)
 	if peakDB < -60 {
 		peakDB = -60
@@ -119,6 +211,15 @@ func (p *GainProcessor) GetBuses() *bus.Configuration {
 }
 
 func (p *GainProcessor) SetActive(active bool) error {
+	if !active {
+		// Reset smoother when deactivating
+		if sp, ok := p.smoother.Get(ParamGain); ok {
+			gainParam := p.params.Get(ParamGain)
+			if gainParam != nil {
+				sp.SetValue(gainParam.GetValue())
+			}
+		}
+	}
 	return nil
 }
 

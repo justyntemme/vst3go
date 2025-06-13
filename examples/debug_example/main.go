@@ -1,12 +1,16 @@
 // Package main demonstrates the use of debug utilities in a VST3 plugin.
 package main
 
+// #cgo CFLAGS: -I../../include
+// #include "../../bridge/bridge.c"
+// #include "../../bridge/component.c"
+import "C"
 import (
-	"C"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/justyntemme/vst3go/pkg/dsp/gain"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/debug"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
@@ -165,9 +169,10 @@ func (p *DebugExampleProcessor) ProcessAudio(ctx *process.Context) {
 			
 			// Simple processing (gain reduction)
 			debug.Time("GainReduction", func() {
-				for i := 0; i < ctx.NumSamples(); i++ {
-					output[i] = input[i] * 0.7
-				}
+				// First copy input to output
+				copy(output[:ctx.NumSamples()], input[:ctx.NumSamples()])
+				// Then apply gain
+				gain.ApplyBuffer(output[:ctx.NumSamples()], 0.7)
 			})
 			
 			// Check output

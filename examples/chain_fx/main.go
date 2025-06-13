@@ -1,9 +1,11 @@
 // Package main implements a multi-effect plugin using the DSP chain builder.
 package main
 
+// #cgo CFLAGS: -I../../include
+// #include "../../bridge/bridge.c"
+// #include "../../bridge/component.c"
+import "C"
 import (
-	"C"
-
 	"github.com/justyntemme/vst3go/pkg/dsp/dynamics"
 	"github.com/justyntemme/vst3go/pkg/dsp/utility"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
@@ -21,6 +23,23 @@ const (
 	paramCompRatio
 	paramNoiseAmount
 	paramChainSelect
+)
+
+// Parameter range constants
+const (
+	// Threshold ranges
+	minThresholdDB = -60.0
+	maxThresholdDB = 0.0
+	defaultGateThresholdDB = -30.0
+	defaultCompThresholdDB = -20.0
+	
+	// Ratio ranges
+	minRatio = 1.0
+	maxRatio = 20.0
+	defaultRatio = 4.0
+	
+	// Noise amount
+	noiseScaleFactor = 0.01
 )
 
 // ChainFXPlugin implements a multi-effect plugin with selectable chains
@@ -111,15 +130,15 @@ func (p *ChainFXProcessor) Initialize(sampleRate float64, maxBlockSize int32) er
 	)
 	
 	registry.Add(
-		param.ThresholdParameter(paramGateThreshold, "Gate Threshold", -60, 0, -30).Build(),
+		param.ThresholdParameter(paramGateThreshold, "Gate Threshold", minThresholdDB, maxThresholdDB, defaultGateThresholdDB).Build(),
 	)
 	
 	registry.Add(
-		param.ThresholdParameter(paramCompThreshold, "Comp Threshold", -60, 0, -20).Build(),
+		param.ThresholdParameter(paramCompThreshold, "Comp Threshold", minThresholdDB, maxThresholdDB, defaultCompThresholdDB).Build(),
 	)
 	
 	registry.Add(
-		param.RatioParameter(paramCompRatio, "Comp Ratio", 1, 20, 4).Build(),
+		param.RatioParameter(paramCompRatio, "Comp Ratio", minRatio, maxRatio, defaultRatio).Build(),
 	)
 	
 	registry.Add(
@@ -153,19 +172,19 @@ func (p *ChainFXProcessor) ProcessAudio(ctx *process.Context) {
 	for _, change := range ctx.GetParameterChanges() {
 		switch change.ParamID {
 		case paramGateThreshold:
-			dbValue := -60.0 + change.Value*60.0 // -60 to 0 dB
+			dbValue := minThresholdDB + change.Value*(maxThresholdDB-minThresholdDB)
 			p.gate.SetThreshold(dbValue)
 			
 		case paramCompThreshold:
-			dbValue := -60.0 + change.Value*60.0 // -60 to 0 dB
+			dbValue := minThresholdDB + change.Value*(maxThresholdDB-minThresholdDB)
 			p.compressor.SetThreshold(dbValue)
 			
 		case paramCompRatio:
-			ratio := 1.0 + change.Value*19.0 // 1:1 to 20:1
+			ratio := minRatio + change.Value*(maxRatio-minRatio)
 			p.compressor.SetRatio(ratio)
 			
 		case paramNoiseAmount:
-			amount := float32(change.Value * 0.01) // 0-1 range
+			amount := float32(change.Value * noiseScaleFactor)
 			p.noise.SetMix(amount)
 			
 		case paramChainSelect:

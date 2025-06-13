@@ -6,13 +6,15 @@ package main
 import "C"
 import (
 	"fmt"
-	"math"
+	
+	"github.com/justyntemme/vst3go/pkg/dsp"
+	"github.com/justyntemme/vst3go/pkg/dsp/dynamics"
+	"github.com/justyntemme/vst3go/pkg/dsp/filter"
+	"github.com/justyntemme/vst3go/pkg/dsp/gain"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
 	"github.com/justyntemme/vst3go/pkg/framework/process"
-	"github.com/justyntemme/vst3go/pkg/dsp/dynamics"
-	"github.com/justyntemme/vst3go/pkg/dsp/filter"
 	vst3plugin "github.com/justyntemme/vst3go/pkg/plugin"
 )
 
@@ -73,6 +75,36 @@ const (
 	ParamGainReduction
 )
 
+// Parameter range constants
+const (
+	// Threshold ranges
+	minThresholdDB = -60.0
+	maxThresholdDB = 0.0
+	
+	// Ratio ranges
+	minRatio = 2.0
+	maxRatio = 20.0
+	
+	// Time ranges
+	minAttackMS = 0.001
+	maxAttackMS = 0.05
+	minReleaseMS = 0.01
+	maxReleaseMS = 0.5
+	
+	// HPF range
+	minHPFFreq = 20.0
+	maxHPFFreq = 500.0
+	defaultHPFFreq = 100.0
+	
+	// Gain range
+	minOutputGainDB = -20.0
+	maxOutputGainDB = 20.0
+	
+	// Default values
+	defaultParallelMix = 0.5
+	defaultOutputGain = 1.0
+)
+
 // DrumBusProcessor implements the audio processing
 type DrumBusProcessor struct {
 	// DSP - Parallel compression path
@@ -108,9 +140,9 @@ func NewDrumBusProcessor() *DrumBusProcessor {
 	p := &DrumBusProcessor{
 		params:           param.NewRegistry(),
 		buses:            bus.NewStereoConfiguration(),
-		parallelMix:      0.5,
-		outputGain:       1.0,
-		hpfFreq:          100.0,
+		parallelMix:      defaultParallelMix,
+		outputGain:       defaultOutputGain,
+		hpfFreq:          defaultHPFFreq,
 		transientAttack:  0.0,
 		transientSustain: 0.0,
 	}
@@ -125,7 +157,7 @@ func (p *DrumBusProcessor) initializeParameters() {
 	// Parallel Compressor section
 	p.params.Add(
 		param.New(ParamParallelThreshold, "Parallel Threshold").
-			Range(-60.0, 0.0).
+			Range(minThresholdDB, maxThresholdDB).
 			Default(-20.0).
 			Unit("dB").
 			Formatter(param.DecibelFormatter, param.DecibelParser).
@@ -134,7 +166,7 @@ func (p *DrumBusProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamParallelRatio, "Parallel Ratio").
-			Range(2.0, 20.0).
+			Range(minRatio, maxRatio).
 			Default(10.0).
 			Unit(":1").
 			Formatter(param.RatioFormatter, param.RatioParser).
@@ -143,7 +175,7 @@ func (p *DrumBusProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamParallelAttack, "Parallel Attack").
-			Range(0.001, 0.05).
+			Range(minAttackMS, maxAttackMS).
 			Default(0.005).
 			Unit("ms").
 			Formatter(func(value float64) string {
@@ -160,7 +192,7 @@ func (p *DrumBusProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamParallelRelease, "Parallel Release").
-			Range(0.01, 0.5).
+			Range(minReleaseMS, maxReleaseMS).
 			Default(0.1).
 			Unit("ms").
 			Formatter(func(value float64) string {
@@ -177,8 +209,8 @@ func (p *DrumBusProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamParallelHPF, "HPF Sidechain").
-			Range(20.0, 500.0).
-			Default(100.0).
+			Range(minHPFFreq, maxHPFFreq).
+			Default(defaultHPFFreq).
 			Unit("Hz").
 			Formatter(param.FrequencyFormatter, param.FrequencyParser).
 			Build(),
@@ -276,7 +308,7 @@ func (p *DrumBusProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamOutputGain, "Output").
-			Range(-12.0, 12.0).
+			Range(minOutputGainDB, maxOutputGainDB).
 			Default(0.0).
 			Unit("dB").
 			Formatter(param.DecibelFormatter, param.DecibelParser).
@@ -430,18 +462,13 @@ func (p *DrumBusProcessor) ProcessAudio(ctx *process.Context) {
 	p.glueCompR.ProcessBuffer(ctx.Output[1][:numSamples], ctx.Output[1][:numSamples])
 	
 	// 6. Mix parallel with main
-	mix := float32(p.parallelMix)
-	for i := 0; i < numSamples; i++ {
-		ctx.Output[0][i] += p.parallelBufferL[i] * mix
-		ctx.Output[1][i] += p.parallelBufferR[i] * mix
-	}
+	dsp.AddScaled(ctx.Output[0][:numSamples], p.parallelBufferL[:numSamples], float32(p.parallelMix))
+	dsp.AddScaled(ctx.Output[1][:numSamples], p.parallelBufferR[:numSamples], float32(p.parallelMix))
 	
 	// 7. Apply output gain and sustain adjustment
-	gain := float32(p.outputGain * (1.0 + p.transientSustain*0.5))
-	for i := 0; i < numSamples; i++ {
-		ctx.Output[0][i] *= gain
-		ctx.Output[1][i] *= gain
-	}
+	gainValue := float32(p.outputGain * (1.0 + p.transientSustain*0.5))
+	gain.ApplyBuffer(ctx.Output[0][:numSamples], gainValue)
+	gain.ApplyBuffer(ctx.Output[1][:numSamples], gainValue)
 	
 	// Update gain reduction meter
 	parallelGR := (p.parallelCompL.GetGainReduction() + p.parallelCompR.GetGainReduction()) / 2.0
@@ -509,7 +536,7 @@ func (p *DrumBusProcessor) updateParameters(ctx *process.Context) {
 	p.parallelMix = ctx.Param(ParamParallelMix)
 	
 	outputGainDB := ctx.ParamPlain(ParamOutputGain)
-	p.outputGain = math.Pow(10.0, outputGainDB/20.0)
+	p.outputGain = gain.DbToLinear(outputGainDB)
 }
 
 // GetParameters returns the parameter registry

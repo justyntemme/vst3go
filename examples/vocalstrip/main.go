@@ -6,13 +6,14 @@ package main
 import "C"
 import (
 	"fmt"
-	"math"
+	
+	"github.com/justyntemme/vst3go/pkg/dsp/dynamics"
+	"github.com/justyntemme/vst3go/pkg/dsp/filter"
+	"github.com/justyntemme/vst3go/pkg/dsp/gain"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
 	"github.com/justyntemme/vst3go/pkg/framework/process"
-	"github.com/justyntemme/vst3go/pkg/dsp/dynamics"
-	"github.com/justyntemme/vst3go/pkg/dsp/filter"
 	vst3plugin "github.com/justyntemme/vst3go/pkg/plugin"
 )
 
@@ -79,6 +80,43 @@ const (
 	// Output
 	ParamOutputGain
 	ParamGainReduction
+)
+
+// Parameter range constants
+const (
+	// Threshold and gain ranges
+	minThresholdDB = -60.0
+	maxThresholdDB = 0.0
+	minGainDB = -12.0
+	maxGainDB = 12.0
+	
+	// Gate specific
+	minGateRangeDB = -60.0
+	maxGateRangeDB = 0.0
+	
+	// Compressor specific
+	minRatio = 1.0
+	maxRatio = 20.0
+	minAttackSec = 0.001
+	maxAttackSec = 0.1
+	minReleaseSec = 0.01
+	maxReleaseSec = 1.0
+	
+	// EQ specific
+	minEQFreq = 20.0
+	maxEQFreqLow = 1000.0
+	maxEQFreqMid = 10000.0
+	maxEQFreqHigh = 20000.0
+	minQ = 0.1
+	maxQ = 10.0
+	
+	// Limiter specific
+	minCeilingDB = -3.0
+	maxCeilingDB = 0.0
+	
+	// Output
+	minOutputGainDB = -12.0
+	maxOutputGainDB = 12.0
 )
 
 // VocalStripProcessor implements the audio processing
@@ -156,7 +194,7 @@ func (p *VocalStripProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamGateThreshold, "Gate Threshold").
-			Range(-60.0, 0.0).
+			Range(minThresholdDB, maxThresholdDB).
 			Default(-40.0).
 			Unit("dB").
 			Formatter(param.DecibelFormatter, param.DecibelParser).
@@ -165,7 +203,7 @@ func (p *VocalStripProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamGateRange, "Gate Range").
-			Range(-60.0, 0.0).
+			Range(minGateRangeDB, maxGateRangeDB).
 			Default(-40.0).
 			Unit("dB").
 			Formatter(param.DecibelFormatter, param.DecibelParser).
@@ -184,7 +222,7 @@ func (p *VocalStripProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamCompThreshold, "Comp Threshold").
-			Range(-60.0, 0.0).
+			Range(minThresholdDB, maxThresholdDB).
 			Default(-20.0).
 			Unit("dB").
 			Formatter(param.DecibelFormatter, param.DecibelParser).
@@ -193,7 +231,7 @@ func (p *VocalStripProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamCompRatio, "Comp Ratio").
-			Range(1.0, 20.0).
+			Range(minRatio, maxRatio).
 			Default(4.0).
 			Unit(":1").
 			Formatter(param.RatioFormatter, param.RatioParser).
@@ -202,7 +240,7 @@ func (p *VocalStripProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamCompAttack, "Comp Attack").
-			Range(0.001, 0.1).
+			Range(minAttackSec, maxAttackSec).
 			Default(0.01).
 			Unit("ms").
 			Formatter(func(value float64) string {
@@ -219,7 +257,7 @@ func (p *VocalStripProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamCompRelease, "Comp Release").
-			Range(0.01, 1.0).
+			Range(minReleaseSec, maxReleaseSec).
 			Default(0.1).
 			Unit("ms").
 			Formatter(func(value float64) string {
@@ -328,7 +366,7 @@ func (p *VocalStripProcessor) initializeParameters() {
 	
 	p.params.Add(
 		param.New(ParamLimiterCeiling, "Ceiling").
-			Range(-3.0, 0.0).
+			Range(minCeilingDB, maxCeilingDB).
 			Default(-0.3).
 			Unit("dB").
 			Formatter(param.DecibelFormatter, param.DecibelParser).
@@ -338,7 +376,7 @@ func (p *VocalStripProcessor) initializeParameters() {
 	// Output
 	p.params.Add(
 		param.New(ParamOutputGain, "Output").
-			Range(-12.0, 12.0).
+			Range(minOutputGainDB, maxOutputGainDB).
 			Default(0.0).
 			Unit("dB").
 			Formatter(param.DecibelFormatter, param.DecibelParser).
@@ -483,11 +521,9 @@ func (p *VocalStripProcessor) ProcessAudio(ctx *process.Context) {
 	
 	// 5. Output gain
 	if p.outputGain != 1.0 {
-		gain := float32(p.outputGain)
-		for i := 0; i < numSamples; i++ {
-			ctx.Output[0][i] *= gain
-			ctx.Output[1][i] *= gain
-		}
+		gainValue := float32(p.outputGain)
+		gain.ApplyBuffer(ctx.Output[0][:numSamples], gainValue)
+		gain.ApplyBuffer(ctx.Output[1][:numSamples], gainValue)
 	}
 	
 	// Update gain reduction meter (combined from compressor and limiter)
@@ -593,7 +629,7 @@ func (p *VocalStripProcessor) updateParameters(ctx *process.Context) {
 	
 	// Output gain
 	outputGainDB := ctx.ParamPlain(ParamOutputGain)
-	p.outputGain = dBToLinear(outputGainDB)
+	p.outputGain = gain.DbToLinear(outputGainDB)
 }
 
 // GetParameters returns the parameter registry
@@ -648,7 +684,3 @@ func (p *VocalStripProcessor) GetTailSamples() int32 {
 	return int32(maxRelease * p.sampleRate)
 }
 
-// Helper function to convert dB to linear
-func dBToLinear(dB float64) float64 {
-	return math.Pow(10.0, dB/20.0)
-}
