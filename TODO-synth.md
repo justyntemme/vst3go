@@ -1,279 +1,361 @@
-# VST3Go Synthesizer Implementation Strategy
+# VST3Go MassiveSynth - Virtual Modular Synthesizer
 
-## Current Status (December 2024)
+## Vision
+Create a professional-grade virtual modular synthesizer that showcases the full capabilities of VST3Go's DSP library while providing a flexible, high-quality instrument for music production.
 
-### ✅ Completed Prerequisites
+## Current Status (January 2025)
 
-1. **Core MIDI Infrastructure** (`pkg/midi/`)
-   - ✅ MIDI event types (Note On/Off, CC, Pitch Bend, Aftertouch, Program Change)
-   - ✅ MIDI event queue with sample-accurate timing
-   - ⏳ MIDI learn system for parameter mapping (future)
-   - ⏳ MPE (MIDI Polyphonic Expression) support (future)
+### ✅ Completed Infrastructure
 
-2. **Voice Management** (`pkg/framework/voice/`)
-   - ✅ Voice allocator with multiple modes (poly, mono, legato, unison)
-   - ✅ Voice stealing algorithms (oldest, quietest, highest, lowest, none)
-   - ✅ Sustain pedal support
-   - ⏳ Portamento/glide system (partially implemented)
-   - ⏳ Unison detune management (structure in place)
+1. **Core Framework Components**
+   - ✅ MIDI event processing with sample-accurate timing
+   - ✅ Voice allocation system (poly, mono, legato, unison modes)
+   - ✅ Voice stealing algorithms
+   - ✅ Parameter automation system
+   - ✅ Bus configuration (audio + MIDI)
+   - ✅ Zero-allocation audio processing
 
-3. **Event Processing Updates** (`pkg/framework/process/`)
-   - ✅ Event input queue in process.Context
-   - ✅ Event output queue (for MIDI effects)
-   - ✅ Sample-accurate event processing
-   - ✅ Integration with existing parameter automation
+2. **SimpleSynth Example** 
+   - ✅ Basic synthesizer implementation
+   - ✅ Single oscillator with ADSR
+   - ✅ 16-voice polyphony
+   - ✅ MIDI handling
+   - ✅ VST3 validation passing
 
-### ✅ Phase 1: Basic Voice Engine - COMPLETED
+3. **Available DSP Modules**
 
-Created `examples/simplesynth/` with:
-- ✅ Single sine oscillator per voice
-- ✅ ADSR envelope for amplitude
-- ✅ 16-voice polyphony with voice allocation
-- ✅ MIDI note on/off handling
-- ✅ Velocity sensitivity
-- ✅ Sustain pedal support
-- ✅ Parameter automation (Attack, Decay, Sustain, Release, Volume)
-- ✅ Proper VST3 plugin structure (Plugin/Processor separation)
-- ✅ Zero-allocation audio processing
-- ✅ Builds successfully as VST3 plugin
+   **Sound Generators**
+   - ✅ Multi-waveform oscillators (sine, saw, square, triangle, pulse)
+   - ✅ Band-limited oscillators (BLIT-based, alias-free)
+   - ✅ Noise generators (white, pink, brown, blue, violet, gaussian)
 
-## MegaSynth - Professional Subtractive Synthesizer
+   **Filters**
+   - ✅ State Variable Filter (LP, HP, BP, Notch with morphing)
+   - ✅ Biquad filters (parametric EQ, shelving)
+   - ✅ Comb filter (for physical modeling)
 
-### Updated Architecture for Current Framework
+   **Envelopes & Modulation**
+   - ✅ ADSR envelope
+   - ✅ AR envelope
+   - ✅ Envelope follower
+   - ✅ LFO with multiple waveforms and sync
+   - ✅ Ring modulator
+
+   **Effects**
+   - ✅ Delay (basic, multi-tap, modulated)
+   - ✅ Reverb (FDN, Freeverb, Schroeder)
+   - ✅ Chorus
+   - ✅ Flanger
+   - ✅ Phaser
+   - ✅ Tremolo
+   - ✅ Distortion (bitcrusher, tape, tube, waveshaper)
+
+   **Dynamics**
+   - ✅ Compressor
+   - ✅ Limiter
+   - ✅ Gate
+   - ✅ Expander
+
+   **Utilities**
+   - ✅ DC blocker
+   - ✅ Mix/crossfade utilities
+   - ✅ Pan (stereo)
+   - ✅ Gain control
+   - ✅ Analysis tools (FFT, meters, scope)
+
+## MassiveSynth Architecture
+
+### Core Design: Virtual Modular System
 
 ```
-MIDI Events → EventBuffer → Voice Allocator → Voice Processing → Mix → Output
-                               ↓
-                        [Per Voice (Voice Interface):]
-                        Oscillators → Mix → Filter → Amp → Pan
-                             ↓         ↓       ↓       ↓
-                           LFO1     LFO2    ADSR1   ADSR2
+┌─────────────────────────── MassiveSynth ───────────────────────────┐
+│                                                                     │
+│  ┌─────────────── Modulation Matrix ──────────────┐               │
+│  │ Sources → Destinations with Amount/Bipolar      │               │
+│  └─────────────────────────────────────────────────┘               │
+│                                                                     │
+│  ┌─── Voice Architecture (Per Voice) ───┐                          │
+│  │                                       │                          │
+│  │  ┌─── Oscillator Section ───┐        │   ┌─── Global ───┐     │
+│  │  │ • OSC1 (Multi-wave)      │        │   │ • Master FX  │     │
+│  │  │ • OSC2 (Multi-wave)      │        │   │ • Compressor │     │
+│  │  │ • SUB (Sine/Square)      │        │   │ • Limiter    │     │
+│  │  │ • Noise (Multi-color)    │        │   │ • Reverb     │     │
+│  │  │ • Ring Mod (OSC1×OSC2)   │        │   │ • Delay      │     │
+│  │  └──────────────────────────┘        │   │ • Chorus     │     │
+│  │            ↓                          │   └──────────────┘     │
+│  │  ┌─── Mixer Section ────────┐        │                         │
+│  │  │ Level + Pan per source   │        │                         │
+│  │  └──────────────────────────┘        │                         │
+│  │            ↓                          │                         │
+│  │  ┌─── Filter Section ───────┐        │                         │
+│  │  │ • SVF (Morph LP/HP/BP)   │        │                         │
+│  │  │ • Filter ADSR            │        │                         │
+│  │  │ • Key tracking           │        │                         │
+│  │  └──────────────────────────┘        │                         │
+│  │            ↓                          │                         │
+│  │  ┌─── Amplifier Section ────┐        │                         │
+│  │  │ • Amp ADSR               │        │                         │
+│  │  │ • Velocity sensitivity   │        │                         │
+│  │  └──────────────────────────┘        │                         │
+│  │                                       │                         │
+│  │  ┌─── Modulation Sources ───┐        │                         │
+│  │  │ • LFO 1 (Multi-wave)     │        │                         │
+│  │  │ • LFO 2 (Multi-wave)     │        │                         │
+│  │  │ • Mod Envelope (ADSR)    │        │                         │
+│  │  └──────────────────────────┘        │                         │
+│  │                                       │                         │
+│  └───────────────────────────────────────┘                         │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Core Components (Updated for Current API)
+### Implementation Structure
 
-#### 1. Voice Architecture
 ```go
-type SynthVoice struct {
-    // Implements voice.Voice interface
-    
-    // Oscillators (using pkg/dsp/oscillator)
-    osc1        *oscillator.Oscillator
-    osc2        *oscillator.Oscillator
+// Core Voice Implementation
+type MassiveSynthVoice struct {
+    // Sound generation
+    osc1        *oscillator.BandLimitedOscillator
+    osc2        *oscillator.BandLimitedOscillator
     subOsc      *oscillator.Oscillator
-    noiseGen    *utility.NoiseGenerator  // pkg/dsp/utility/noise.go
+    noise       *utility.NoiseGenerator
+    ringMod     *modulation.RingModulator
     
-    // Mixing
-    osc1Level   float32
-    osc2Level   float32
-    subLevel    float32
-    noiseLevel  float32
+    // Mixing (per-source)
+    oscMixer    *mix.Mixer  // New component to implement
     
-    // Filter (using pkg/dsp/filter)
+    // Filter
     filter      *filter.StateVariable
     filterEnv   *envelope.ADSR
+    filterAmount float64
+    keyTracking  float64
     
     // Amplifier
     ampEnv      *envelope.ADSR
     
-    // Modulation
-    lfo1        *oscillator.Oscillator  // Used as LFO
-    lfo2        *oscillator.Oscillator
+    // Per-voice modulation
+    lfo1        *modulation.LFO
+    lfo2        *modulation.LFO
+    modEnv      *envelope.ADSR
     
-    // Voice state (required by voice.Voice interface)
+    // Voice state
     note        uint8
     velocity    uint8
     active      bool
     age         int64
-    amplitude   float64
 }
-```
 
-#### 2. Processor Architecture (Updated)
-```go
-type MegaSynthProcessor struct {
-    // Core components
-    voices      []voice.Voice
+// Main Processor
+type MassiveSynthProcessor struct {
+    // Voice management
+    voices      [64]MassiveSynthVoice  // 64-voice polyphony
     voiceAlloc  *voice.Allocator
-    params      *param.Registry
-    buses       *bus.Configuration
     
-    // Global modulation
-    globalLFO   *oscillator.Oscillator
+    // Modulation matrix
+    modMatrix   *ModulationMatrix  // To be implemented
     
-    // Effects chain (available DSP components)
-    chorus      *chorus.Chorus         // pkg/dsp/chorus
-    delay       *delay.Delay           // pkg/dsp/delay  
-    reverb      *reverb.FDNReverb      // pkg/dsp/reverb
-    distortion  *distortion.Distortion // pkg/dsp/distortion
+    // Global LFOs
+    globalLFO1  *modulation.LFO
+    globalLFO2  *modulation.LFO
+    
+    // Effects chain
+    effects     struct {
+        // Insert effects
+        distortion  *distortion.Distortion
+        phaser      *modulation.Phaser
+        
+        // Send effects
+        chorus      *modulation.Chorus
+        delay       *delay.MultiTapDelay
+        reverb      *reverb.FDNReverb
+    }
     
     // Master section
-    compressor  *dynamics.Compressor   // pkg/dsp/dynamics
+    compressor  *dynamics.Compressor
     limiter     *dynamics.Limiter
     
-    // State
+    // Analysis
+    meters      *analysis.StereoMeter
+    scope       *analysis.PhaseScope
+    
+    // Parameters and state
+    params      *param.Registry
+    buses       *bus.Configuration
     sampleRate  float64
-    active      bool
 }
 ```
 
-### Available DSP Components
-
-Based on current codebase scan:
-
-#### Oscillators & Generators
-- ✅ Basic Oscillator (sine, saw, square, triangle, pulse)
-- ✅ Band-limited oscillators (BLIT-based)
-- ✅ Noise generator (white, pink, brown)
-
-#### Filters
-- ✅ State Variable Filter (LP, HP, BP, Notch)
-- ✅ Biquad filters
-- ✅ Moog-style ladder filter
-- ✅ Comb filter
-
-#### Envelopes
-- ✅ ADSR envelope
-- ✅ AR envelope
-- ✅ Envelope follower
-
-#### Effects
-- ✅ Delay (with tempo sync)
-- ✅ Chorus
-- ✅ Reverb (FDN and Freeverb)
-- ✅ Distortion (multiple types)
-- ✅ Phaser
-- ✅ Tremolo
-
-#### Dynamics
-- ✅ Compressor
-- ✅ Limiter
-- ✅ Gate
-
-#### Utilities
-- ✅ Gain control
-- ✅ Pan (stereo, surround)
-- ✅ DC blocker
-- ✅ Parameter smoothing
-
-### Implementation Phases (Revised)
-
-#### ✅ Phase 1: Basic Voice Engine - COMPLETED
-- Simple synth example created and working
-
-#### Phase 2: Full Oscillator Section (Next Step)
-1. Extend SynthVoice with multiple oscillators
-2. Add oscillator mixing controls
-3. Implement sub-oscillator
-4. Add noise generator
-5. Implement oscillator sync
-6. Add pulse width modulation
-
-#### Phase 3: Filter and Envelopes
-1. Add StateVariable filter to voice
-2. Implement filter envelope
-3. Add filter keyboard tracking
-4. Velocity to filter cutoff
-5. Resonance self-oscillation protection
-
-#### Phase 4: LFO and Modulation
-1. Add per-voice LFOs
-2. Implement global LFO
-3. Create modulation routing system
-4. Add tempo sync for LFOs
-5. Implement sample & hold
-
-#### Phase 5: Effects Chain
-1. Add send effects bus system
-2. Implement effect bypass/mix
-3. Add effect parameter automation
-4. Create effect presets
-
-#### Phase 6: Advanced Features
-1. Implement modulation matrix
-2. Add unison mode with detune
-3. Implement portamento/glide
-4. Add mono/legato modes
-5. MPE support (when available)
-
-#### Phase 7: Optimization & Polish
-1. Implement voice culling for efficiency
-2. Add parameter smoothing
-3. Create factory presets
-4. Optimize DSP code
-5. Add visual feedback parameters
-
-### Code Structure Updates
-
-The current framework uses a Plugin/Processor separation:
+### Modulation Matrix Design
 
 ```go
-// examples/megasynth/plugin.go
-type MegaSynthPlugin struct{}
+// Modulation source types
+const (
+    ModSrcLFO1 = iota
+    ModSrcLFO2
+    ModSrcGlobalLFO1
+    ModSrcGlobalLFO2
+    ModSrcFilterEnv
+    ModSrcAmpEnv
+    ModSrcModEnv
+    ModSrcVelocity
+    ModSrcAftertouch
+    ModSrcModWheel
+    ModSrcPitchBend
+    ModSrcKeyTracking
+    // ... more sources
+)
 
-func (p *MegaSynthPlugin) GetInfo() plugin.Info {
-    return plugin.Info{
-        ID:       "com.vst3go.megasynth",
-        Name:     "MegaSynth",
-        Version:  "1.0.0",
-        Vendor:   "VST3Go",
-        Category: "Instrument|Synth",
-    }
+// Modulation destination types  
+const (
+    ModDestOsc1Pitch = iota
+    ModDestOsc2Pitch
+    ModDestOsc1PulseWidth
+    ModDestOsc2PulseWidth
+    ModDestOscMix
+    ModDestFilterCutoff
+    ModDestFilterResonance
+    ModDestFilterMorph
+    ModDestAmpLevel
+    ModDestPan
+    // ... more destinations
+)
+
+type ModulationRoute struct {
+    Source      int
+    Destination int
+    Amount      float64
+    Bipolar     bool
 }
 
-func (p *MegaSynthPlugin) CreateProcessor() vst3plugin.Processor {
-    return NewMegaSynthProcessor()
-}
-
-// examples/megasynth/processor.go
-type MegaSynthProcessor struct {
-    // ... implementation
-}
-
-func (p *MegaSynthProcessor) ProcessAudio(ctx *process.Context) {
-    // Process MIDI events
-    events := ctx.GetAllInputEvents()
-    for _, event := range events {
-        p.voiceAlloc.ProcessEvent(event)
-    }
-    
-    // Clear output
-    ctx.Clear()
-    
-    // Process voices
-    voiceBuffer := make([]float32, ctx.NumSamples())
-    for _, voice := range p.voices {
-        if voice.IsActive() {
-            voice.Process(voiceBuffer)
-            // Mix to output...
-        }
-    }
-    
-    // Apply effects...
+type ModulationMatrix struct {
+    routes      [16]ModulationRoute
+    numRoutes   int
 }
 ```
 
-### Next Steps
+## Implementation Phases
 
-1. **Extend SimpleSynth** - Add second oscillator and mixing
-2. **Add Filter** - Integrate StateVariable filter with envelope
-3. **Create MegaSynth** - New example with full architecture
-4. **Add Presets** - Implement preset system
-5. **Documentation** - Create user and developer guides
+### Phase 1: Core Voice Engine Enhancement ✅
+- Extend SimpleSynth with basic multi-oscillator architecture
 
-### Performance Considerations
+### Phase 2: Dual Oscillator System 🚧
+1. Add second oscillator to voice
+2. Implement oscillator mixing
+3. Add sub-oscillator
+4. Integrate noise generator
+5. Add ring modulation between OSC1 and OSC2
+6. Implement oscillator sync (master/slave)
 
-- ✅ Zero-allocation audio processing (already implemented)
-- ✅ Pre-allocated voice pool
-- ✅ Lock-free parameter updates
-- ⏳ SIMD optimizations (future)
-- ⏳ Voice culling for CPU efficiency
+### Phase 3: Advanced Filter Section
+1. Integrate State Variable Filter
+2. Add filter ADSR envelope
+3. Implement keyboard tracking
+4. Add velocity → cutoff modulation
+5. Implement filter morph control
+6. Add resonance compensation
 
-### Testing Strategy
+### Phase 4: Modulation System
+1. Design and implement modulation matrix
+2. Add per-voice LFOs
+3. Add global LFOs
+4. Implement modulation envelope
+5. Add sample & hold functionality
+6. Create modulation visualization parameters
 
-1. **Unit Tests** - Already in place for DSP components
-2. **Integration Tests** - Test full signal path
-3. **Performance Tests** - Measure CPU usage
-4. **Audio Quality Tests** - THD, aliasing measurements
+### Phase 5: Effects Integration
+1. Implement insert/send effect architecture
+2. Add distortion as insert effect
+3. Add phaser as insert effect
+4. Implement send effects (chorus, delay, reverb)
+5. Add effect mix/bypass controls
+6. Create effect presets
 
-This synthesizer will demonstrate VST3Go's full capabilities while serving as a professional-quality instrument plugin.
+### Phase 6: Advanced Features
+1. Implement unison mode with detune spread
+2. Add chord modes (major, minor, etc.)
+3. Implement portamento/glide with time control
+4. Add mono/legato behavior modes
+5. Implement voice priority modes
+6. Add MPE support (when framework supports it)
+
+### Phase 7: Performance & Polish
+1. Implement voice culling for inactive voices
+2. Add parameter smoothing for zipper-free control
+3. Create comprehensive preset system
+4. Add macro controls for easy tweaking
+5. Implement MIDI learn functionality
+6. Add visual feedback parameters for UI
+
+### Phase 8: Modular Extensions
+1. Create pluggable oscillator types
+2. Add more filter models
+3. Implement wavetable support
+4. Add FM synthesis capability
+5. Create custom LFO shapes
+6. Add step sequencer module
+
+## Unique Features to Implement
+
+### 1. Morphing Oscillators
+- Smooth morphing between waveforms
+- Vector synthesis capability
+- Wavetable position modulation
+
+### 2. Advanced Modulation
+- Audio-rate modulation for FM/AM
+- Envelope following from audio input
+- Random modulation sources
+- Step sequencer integration
+
+### 3. Smart Voice Management
+- Automatic voice stealing based on psychoacoustic importance
+- Voice recycling for smooth transitions
+- Intelligent unison spreading
+
+### 4. Creative Effects
+- Granular delay effects
+- Spectral filtering
+- Formant shifting
+- Bit reduction with modulation
+
+## Performance Targets
+
+- **Polyphony**: 64 voices minimum
+- **CPU Usage**: < 30% on modern CPU at 64 voices
+- **Latency**: < 5ms total system latency
+- **Memory**: < 50MB total footprint
+- **Quality**: 96kHz capable, no audible aliasing
+
+## Testing Strategy
+
+1. **Unit Tests**
+   - Test each DSP component in isolation
+   - Verify modulation routing accuracy
+   - Test voice allocation edge cases
+
+2. **Integration Tests**  
+   - Full signal path validation
+   - Preset recall accuracy
+   - MIDI handling stress tests
+
+3. **Performance Tests**
+   - CPU usage at various voice counts
+   - Memory allocation verification
+   - Latency measurements
+
+4. **Audio Quality Tests**
+   - THD+N measurements
+   - Aliasing detection
+   - Filter stability at extremes
+   - Noise floor analysis
+
+## Development Priorities
+
+1. **Core Stability** - Ensure rock-solid voice engine
+2. **Sound Quality** - No compromises on audio fidelity  
+3. **CPU Efficiency** - Optimize hot paths
+4. **Flexibility** - True modular architecture
+5. **Usability** - Intuitive parameter ranges and behaviors
+
+This MassiveSynth will serve as both a professional instrument and a comprehensive demonstration of VST3Go's capabilities in creating complex, high-quality audio plugins.
