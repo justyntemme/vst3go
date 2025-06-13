@@ -241,18 +241,18 @@ int32_t getPoint(void* paramQueue, int32_t index, int32_t* sampleOffset, double*
 // Event processing helper functions
 int32_t getEventCount(void* eventList) {
     if (!eventList) {
-        DBG_LOG("getEventCount: eventList is NULL");
+        // DBG_LOG("getEventCount: eventList is NULL");
         return 0;
     }
     
     struct Steinberg_Vst_IEventList* list = (struct Steinberg_Vst_IEventList*)eventList;
     if (!list->lpVtbl || !list->lpVtbl->getEventCount) {
-        DBG_LOG("getEventCount: vtable or method is NULL");
+        // DBG_LOG("getEventCount: vtable or method is NULL");
         return 0;
     }
     
     int32_t count = list->lpVtbl->getEventCount(list);
-    DBG_LOG("getEventCount: returning %d events", count);
+    // DBG_LOG("getEventCount: returning %d events", count);
     return count;
 }
 
