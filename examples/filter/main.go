@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/justyntemme/vst3go/pkg/dsp"
 	"github.com/justyntemme/vst3go/pkg/dsp/filter"
 	"github.com/justyntemme/vst3go/pkg/dsp/mix"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
@@ -84,14 +85,14 @@ func NewFilterProcessor() *FilterProcessor {
 			Build(),
 
 		param.New(ParamCutoff, "Cutoff").
-			Range(80, 8000).
+			Range(dsp.DefaultLowFreq, 8000).
 			Default(800).
 			Formatter(param.FrequencyFormatter, param.FrequencyParser).
 			Build(),
 
 		param.New(ParamResonance, "Resonance").
-			Range(0.5, 10).
-			Default(0.707).
+			Range(0.5, dsp.MaxQ/2).
+			Default(dsp.DefaultQ).
 			Formatter(func(v float64) string {
 				return fmt.Sprintf("Q: %.2f", v)
 			}, nil).

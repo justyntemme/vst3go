@@ -259,12 +259,11 @@ func (p *TransientShaperProcessor) ProcessAudio(ctx *process.Context) {
 		return
 	}
 	
-	// Resize buffers if needed
+	// Check buffer size - should never happen if Initialize was called correctly
 	if len(p.dryBufferL) < numSamples {
-		p.dryBufferL = make([]float32, numSamples)
-		p.dryBufferR = make([]float32, numSamples)
-		p.wetBufferL = make([]float32, numSamples)
-		p.wetBufferR = make([]float32, numSamples)
+		// This is a critical error - buffers should be pre-allocated in Initialize
+		// For now, just return to avoid crashes, but this indicates a framework issue
+		return
 	}
 	
 	// Copy dry signal

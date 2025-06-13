@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
 	"github.com/justyntemme/vst3go/pkg/framework/process"
@@ -39,8 +37,8 @@ type SimpleSynthProcessor struct {
 	sampleRate float64
 	active     bool
 	
-	// Debug
-	debugCounter int
+	// Pre-allocated buffers
+	voiceBuffer []float32
 }
 
 // NewSimpleSynthProcessor creates a new instance of the synthesizer processor
@@ -109,13 +107,13 @@ func (p *SimpleSynthProcessor) initializeParameters() {
 
 // Initialize is called when the plugin is created
 func (p *SimpleSynthProcessor) Initialize(sampleRate float64, maxBlockSize int32) error {
-	fmt.Printf("[SimpleSynth] Initialize: sampleRate=%.0f, maxBlockSize=%d\n", sampleRate, maxBlockSize)
-	
 	p.sampleRate = sampleRate
+	
+	// Pre-allocate voice buffer
+	p.voiceBuffer = make([]float32, maxBlockSize)
 	
 	// Create voices (16 voice polyphony)
 	p.voices = createVoices(16, sampleRate)
-	fmt.Printf("[SimpleSynth] Created %d voices\n", len(p.voices))
 	
 	// Create voice allocator
 	p.voiceAlloc = voice.NewAllocator(p.voices)
@@ -125,16 +123,11 @@ func (p *SimpleSynthProcessor) Initialize(sampleRate float64, maxBlockSize int32
 	// Update voice parameters
 	p.updateVoiceParameters()
 	
-	fmt.Printf("[SimpleSynth] Initialization complete\n")
 	return nil
 }
 
 // ProcessAudio processes audio
 func (p *SimpleSynthProcessor) ProcessAudio(ctx *process.Context) {
-	// Debug: log first few calls
-	if p.debugCounter < 5 {
-		fmt.Printf("[SimpleSynth] ProcessAudio called: active=%v, numSamples=%d\n", p.active, ctx.NumSamples())
-	}
 	
 	if !p.active {
 		ctx.Clear()
@@ -152,7 +145,7 @@ func (p *SimpleSynthProcessor) ProcessAudio(ctx *process.Context) {
 	
 	// Check if we have output buffers
 	if len(ctx.Output) < 2 {
-		fmt.Printf("[SimpleSynth] WARNING: Not enough output channels: %d\n", len(ctx.Output))
+		
 		return
 	}
 	
@@ -164,11 +157,12 @@ func (p *SimpleSynthProcessor) ProcessAudio(ctx *process.Context) {
 	
 	// Safety check for voices
 	if p.voices == nil || len(p.voices) == 0 {
-		fmt.Printf("[SimpleSynth] WARNING: No voices available\n")
+		
 		return
 	}
 	
-	voiceBuffer := make([]float32, numSamples)
+	// Use pre-allocated voice buffer
+	voiceBuffer := p.voiceBuffer[:numSamples]
 	activeVoices := 0
 	
 	for _, v := range p.voices {
@@ -186,22 +180,17 @@ func (p *SimpleSynthProcessor) ProcessAudio(ctx *process.Context) {
 		}
 	}
 	
-	// Debug: print active voices occasionally
-	if p.debugCounter%100 == 0 && activeVoices > 0 {
-		fmt.Printf("[SimpleSynth] Active voices: %d, Volume: %.2f\n", activeVoices, p.volume)
-	}
-	p.debugCounter++
 }
 
 // processMIDIEvents handles incoming MIDI events
 func (p *SimpleSynthProcessor) processMIDIEvents(ctx *process.Context) {
 	events := ctx.GetAllInputEvents()
 	if len(events) > 0 {
-		fmt.Printf("[SimpleSynth] Processing %d MIDI events\n", len(events))
+		
 	}
 	
 	for _, event := range events {
-		fmt.Printf("[SimpleSynth] MIDI Event: %s\n", event.String())
+		
 		p.voiceAlloc.ProcessEvent(event)
 	}
 	
@@ -270,7 +259,7 @@ func (p *SimpleSynthProcessor) GetBuses() *bus.Configuration {
 
 // SetActive is called when processing starts/stops
 func (p *SimpleSynthProcessor) SetActive(active bool) error {
-	fmt.Printf("[SimpleSynth] SetActive: %v\n", active)
+	
 	p.active = active
 	if !active && p.voiceAlloc != nil {
 		// Stop all voices when deactivated

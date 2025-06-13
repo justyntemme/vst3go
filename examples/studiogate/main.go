@@ -7,6 +7,7 @@ import "C"
 import (
 	"math"
 
+	"github.com/justyntemme/vst3go/pkg/dsp"
 	"github.com/justyntemme/vst3go/pkg/dsp/dynamics"
 	"github.com/justyntemme/vst3go/pkg/dsp/filter"
 	"github.com/justyntemme/vst3go/pkg/dsp/gain"
@@ -41,6 +42,11 @@ type StudioGateProcessor struct {
 	gate           *dynamics.Gate
 	sidechainHPF   *filter.Biquad
 	sampleRate     float64
+	
+	// Pre-allocated buffers to avoid allocations in ProcessAudio
+	sidechainL     []float32
+	sidechainR     []float32
+	sidechainMono  []float32
 }
 
 // Parameter IDs
@@ -67,7 +73,7 @@ func NewStudioGateProcessor() *StudioGateProcessor {
 	// Add parameters
 	p.params.Add(
 		param.New(ParamThreshold, "Threshold").
-			Range(-80, 0).
+			Range(dsp.GateMinThreshold, dsp.GateMaxThreshold).
 			Default(-40).
 			Formatter(param.DecibelFormatter, param.DecibelParser).
 			Build(),
@@ -107,16 +113,16 @@ func NewStudioGateProcessor() *StudioGateProcessor {
 
 	p.params.Add(
 		param.New(ParamRange, "Range").
-			Range(-80, 0).
-			Default(-80).
+			Range(dsp.GateMinRange, dsp.GateMaxRange).
+			Default(dsp.GateMinRange).
 			Formatter(param.DecibelFormatter, param.DecibelParser).
 			Build(),
 	)
 
 	p.params.Add(
 		param.New(ParamSidechainHPF, "Sidechain HPF").
-			Range(20, 500).
-			Default(80).
+			Range(dsp.MinFrequency, 500).
+			Default(dsp.DefaultLowFreq).
 			Formatter(param.FrequencyFormatter, param.FrequencyParser).
 			Build(),
 	)
@@ -147,7 +153,7 @@ func NewStudioGateProcessor() *StudioGateProcessor {
 
 	p.params.Add(
 		param.New(ParamGainReduction, "Gain Reduction").
-			Range(-80, 0).
+			Range(dsp.GateMinRange, dsp.GateMaxRange).
 			Default(0).
 			Formatter(param.DecibelFormatter, nil).
 			Flags(param.IsReadOnly).
@@ -156,8 +162,8 @@ func NewStudioGateProcessor() *StudioGateProcessor {
 
 	p.params.Add(
 		param.New(ParamOutputLevel, "Output Level").
-			Range(-60, 0).
-			Default(-60).
+			Range(dsp.DefaultMinThresholdDB, dsp.DefaultMaxThresholdDB).
+			Default(dsp.DefaultMinThresholdDB).
 			Formatter(param.DecibelFormatter, nil).
 			Flags(param.IsReadOnly).
 			Build(),
@@ -175,6 +181,11 @@ func (p *StudioGateProcessor) Initialize(sampleRate float64, maxBlockSize int32)
 	// Initialize sidechain HPF (2 channels for stereo)
 	p.sidechainHPF = filter.NewBiquad(2)
 	p.sidechainHPF.SetHighpass(sampleRate, 80, 0.707)
+	
+	// Pre-allocate buffers to avoid allocations in ProcessAudio
+	p.sidechainL = make([]float32, maxBlockSize)
+	p.sidechainR = make([]float32, maxBlockSize)
+	p.sidechainMono = make([]float32, maxBlockSize)
 	
 	return nil
 }
@@ -221,13 +232,14 @@ func (p *StudioGateProcessor) ProcessAudio(ctx *process.Context) {
 		copy(outputL, inputL)
 		copy(outputR, inputR)
 		
-		// Create sidechain buffers if HPF is enabled
+		// Use pre-allocated sidechain buffers if HPF is enabled
 		if hpfEnabled {
-			// Create sidechain buffers for external HPF processing
-			sidechainL := make([]float32, len(inputL))
-			sidechainR := make([]float32, len(inputR))
-			copy(sidechainL, inputL)
-			copy(sidechainR, inputR)
+			// Use pre-allocated sidechain buffers for external HPF processing
+			numSamples := ctx.NumSamples()
+			sidechainL := p.sidechainL[:numSamples]
+			sidechainR := p.sidechainR[:numSamples]
+			copy(sidechainL, inputL[:numSamples])
+			copy(sidechainR, inputR[:numSamples])
 			
 			// Apply HPF to sidechain
 			p.sidechainHPF.Process(sidechainL, 0)
@@ -269,8 +281,9 @@ func (p *StudioGateProcessor) ProcessAudio(ctx *process.Context) {
 			copy(output, input)
 			
 			if hpfEnabled {
-				// Create sidechain buffer
-				sidechain := make([]float32, len(input))
+				// Use pre-allocated sidechain buffer
+				numSamples := len(input)
+				sidechain := p.sidechainMono[:numSamples]
 				copy(sidechain, input)
 				
 				// Apply HPF to sidechain
@@ -309,8 +322,8 @@ func (p *StudioGateProcessor) ProcessAudio(ctx *process.Context) {
 	
 	// Output level
 	peakDB := gain.LinearToDb32(peak)
-	if peakDB < -60 {
-		peakDB = -60
+	if peakDB < dsp.DefaultMinThresholdDB {
+		peakDB = dsp.DefaultMinThresholdDB
 	}
 	p.params.Get(ParamOutputLevel).SetValue(p.params.Get(ParamOutputLevel).Normalize(float64(peakDB)))
 }

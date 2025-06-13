@@ -7,6 +7,7 @@ import "C"
 import (
 	"math"
 
+	"github.com/justyntemme/vst3go/pkg/dsp"
 	"github.com/justyntemme/vst3go/pkg/dsp/dynamics"
 	"github.com/justyntemme/vst3go/pkg/dsp/filter"
 	"github.com/justyntemme/vst3go/pkg/dsp/gain"
@@ -42,6 +43,13 @@ type MasterCompressorProcessor struct {
 	sidechainHPF   *filter.Biquad
 	sampleRate     float64
 	makeupGainAuto bool
+	
+	// Pre-allocated buffers to avoid allocations in ProcessAudio
+	sidechainL      []float32
+	sidechainR      []float32
+	tempL           []float32
+	tempR           []float32
+	linkedSidechain []float32
 }
 
 // Parameter IDs
@@ -68,7 +76,7 @@ func NewMasterCompressorProcessor() *MasterCompressorProcessor {
 	// Add parameters
 	p.params.Add(
 		param.New(ParamThreshold, "Threshold").
-			Range(-60, 0).
+			Range(dsp.CompMinThreshold, dsp.CompMaxThreshold).
 			Default(-12).
 			Formatter(param.DecibelFormatter, param.DecibelParser).
 			Build(),
@@ -76,7 +84,7 @@ func NewMasterCompressorProcessor() *MasterCompressorProcessor {
 
 	p.params.Add(
 		param.New(ParamRatio, "Ratio").
-			Range(1, 20).
+			Range(dsp.CompMinRatio, dsp.CompMaxRatio).
 			Default(4).
 			Formatter(func(v float64) string {
 				if v >= 20 {
@@ -105,7 +113,7 @@ func NewMasterCompressorProcessor() *MasterCompressorProcessor {
 
 	p.params.Add(
 		param.New(ParamKnee, "Knee").
-			Range(0, 10).
+			Range(dsp.CompMinKnee, dsp.CompMaxKnee).
 			Default(2).
 			Formatter(param.DecibelFormatter, param.DecibelParser).
 			Build(),
@@ -138,8 +146,8 @@ func NewMasterCompressorProcessor() *MasterCompressorProcessor {
 
 	p.params.Add(
 		param.New(ParamSidechainHPF, "Sidechain HPF").
-			Range(20, 500).
-			Default(20).
+			Range(dsp.MinFrequency, 500).
+			Default(dsp.MinFrequency).
 			Formatter(param.FrequencyFormatter, param.FrequencyParser).
 			Build(),
 	)
@@ -156,8 +164,8 @@ func NewMasterCompressorProcessor() *MasterCompressorProcessor {
 
 	p.params.Add(
 		param.New(ParamOutputLevel, "Output Level").
-			Range(-60, 0).
-			Default(-60).
+			Range(dsp.DefaultMinThresholdDB, dsp.DefaultMaxThresholdDB).
+			Default(dsp.DefaultMinThresholdDB).
 			Formatter(param.DecibelFormatter, nil).
 			Flags(param.IsReadOnly).
 			Build(),
@@ -175,6 +183,13 @@ func (p *MasterCompressorProcessor) Initialize(sampleRate float64, maxBlockSize 
 	// Initialize sidechain HPF (2 channels for stereo)
 	p.sidechainHPF = filter.NewBiquad(2)
 	p.sidechainHPF.SetHighpass(sampleRate, 20, 0.707)
+	
+	// Pre-allocate buffers to avoid allocations in ProcessAudio
+	p.sidechainL = make([]float32, maxBlockSize)
+	p.sidechainR = make([]float32, maxBlockSize)
+	p.tempL = make([]float32, maxBlockSize)
+	p.tempR = make([]float32, maxBlockSize)
+	p.linkedSidechain = make([]float32, maxBlockSize)
 	
 	return nil
 }
@@ -235,11 +250,12 @@ func (p *MasterCompressorProcessor) ProcessAudio(ctx *process.Context) {
 		copy(outputL, inputL)
 		copy(outputR, inputR)
 		
-		// Create sidechain buffers for HPF processing
-		sidechainL := make([]float32, len(inputL))
-		sidechainR := make([]float32, len(inputR))
-		copy(sidechainL, inputL)
-		copy(sidechainR, inputR)
+		// Use pre-allocated sidechain buffers for HPF processing
+		numSamples := ctx.NumSamples()
+		sidechainL := p.sidechainL[:numSamples]
+		sidechainR := p.sidechainR[:numSamples]
+		copy(sidechainL, inputL[:numSamples])
+		copy(sidechainR, inputR[:numSamples])
 		
 		// Apply HPF to sidechain if frequency is above 20Hz
 		if hpfFreq > 20.1 {
@@ -248,12 +264,12 @@ func (p *MasterCompressorProcessor) ProcessAudio(ctx *process.Context) {
 		}
 		
 		// Process stereo linked compression with sidechain
-		// We need to create output buffers since ProcessSidechain takes input, sidechain, output
-		tempL := make([]float32, len(outputL))
-		tempR := make([]float32, len(outputR))
+		// Use pre-allocated temp buffers since ProcessSidechain takes input, sidechain, output
+		tempL := p.tempL[:numSamples]
+		tempR := p.tempR[:numSamples]
 		
 		// Create linked sidechain by taking max of L/R
-		linkedSidechain := make([]float32, len(sidechainL))
+		linkedSidechain := p.linkedSidechain[:numSamples]
 		for i := range linkedSidechain {
 			if math.Abs(float64(sidechainL[i])) > math.Abs(float64(sidechainR[i])) {
 				linkedSidechain[i] = sidechainL[i]

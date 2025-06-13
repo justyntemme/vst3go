@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	
 	"github.com/justyntemme/vst3go/pkg/dsp/envelope"
 	"github.com/justyntemme/vst3go/pkg/dsp/oscillator"
 	"github.com/justyntemme/vst3go/pkg/framework/voice"
@@ -68,9 +66,6 @@ func (v *SynthVoice) TriggerNote(note uint8, velocity uint8) {
 	v.active = true
 	v.age = 0
 	
-	fmt.Printf("[Voice] TriggerNote: note=%d, velocity=%d, freq=%.2f, amp=%.2f\n", 
-		note, velocity, v.frequency, v.amplitude)
-	
 	// Set oscillator frequency
 	v.osc.SetFrequency(v.frequency)
 	
@@ -123,7 +118,6 @@ func (v *SynthVoice) Process(output []float32) {
 		
 		// Debug first sample
 		if firstSample && sample != 0 {
-			fmt.Printf("[Voice] First sample: %.6f (env: %.3f)\n", sample, envValue)
 			firstSample = false
 		}
 		
@@ -132,9 +126,6 @@ func (v *SynthVoice) Process(output []float32) {
 		
 		// Check if envelope has finished
 		if v.ampEnv.GetStage() == envelope.StageIdle {
-			if v.active {
-				fmt.Printf("[Voice] Voice finished (note %d)\n", v.note)
-			}
 			v.active = false
 		}
 	}

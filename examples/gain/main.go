@@ -7,6 +7,7 @@ import "C"
 import (
 	"math"
 
+	"github.com/justyntemme/vst3go/pkg/dsp"
 	"github.com/justyntemme/vst3go/pkg/dsp/gain"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
 	"github.com/justyntemme/vst3go/pkg/framework/param"
@@ -77,8 +78,8 @@ func NewGainProcessor() *GainProcessor {
 	// Add output meter (read-only)
 	p.params.Add(
 		param.New(ParamOutputLevel, "Output Level").
-			Range(-60, 0).
-			Default(-60).
+			Range(dsp.DefaultMinThresholdDB, dsp.DefaultMaxThresholdDB).
+			Default(dsp.DefaultMinThresholdDB).
 			Formatter(param.DecibelFormatter, nil). // No parser needed for read-only
 			Flags(param.IsReadOnly).
 			Build(),

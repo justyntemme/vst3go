@@ -5,6 +5,7 @@ package main
 // #include "../../bridge/component.c"
 import "C"
 import (
+	"github.com/justyntemme/vst3go/pkg/dsp"
 	"github.com/justyntemme/vst3go/pkg/dsp/delay"
 	"github.com/justyntemme/vst3go/pkg/dsp/mix"
 	"github.com/justyntemme/vst3go/pkg/framework/bus"
@@ -52,7 +53,7 @@ func NewDelayProcessor() *DelayProcessor {
 	p := &DelayProcessor{
 		params:     param.NewRegistry(),
 		buses:      bus.NewStereoConfiguration(),
-		sampleRate: 48000,
+		sampleRate: dsp.SampleRate48k,
 	}
 
 	// Add parameters
