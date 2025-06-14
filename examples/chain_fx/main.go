@@ -1,10 +1,6 @@
 // Package main implements a multi-effect plugin using the DSP chain builder.
 package main
 
-// #cgo CFLAGS: -I../../include
-// #include "../../bridge/bridge.c"
-// #include "../../bridge/component.c"
-import "C"
 import (
 	"github.com/justyntemme/vst3go/pkg/dsp/dynamics"
 	"github.com/justyntemme/vst3go/pkg/dsp/utility"
@@ -14,19 +10,24 @@ import (
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
 	"github.com/justyntemme/vst3go/pkg/framework/process"
 	vst3plugin "github.com/justyntemme/vst3go/pkg/plugin"
+	
+	// Import C bridge - required for VST3 plugin to work
+	_ "github.com/justyntemme/vst3go/pkg/plugin/cbridge"
 )
 
 const (
-	paramBypass = iota
-	paramGateThreshold
-	paramCompThreshold
-	paramCompRatio
-	paramNoiseAmount
-	paramChainSelect
+	// Parameter IDs
+	ParamBypass uint32 = iota
+	ParamGateThreshold
+	ParamCompThreshold
+	ParamCompRatio
+	ParamNoiseAmount
+	ParamChainSelect
 )
 
 // Parameter range constants
 const (
+	// Parameter IDs
 	// Threshold ranges
 	minThresholdDB = -60.0
 	maxThresholdDB = 0.0
@@ -126,27 +127,27 @@ func (p *ChainFXProcessor) Initialize(sampleRate float64, maxBlockSize int32) er
 	registry := p.params
 	
 	registry.Add(
-		param.BypassParameter(paramBypass, "Bypass").Build(),
+		param.BypassParameter(ParamBypass, "Bypass").Build(),
 	)
 	
 	registry.Add(
-		param.ThresholdParameter(paramGateThreshold, "Gate Threshold", minThresholdDB, maxThresholdDB, defaultGateThresholdDB).Build(),
+		param.ThresholdParameter(ParamGateThreshold, "Gate Threshold", minThresholdDB, maxThresholdDB, defaultGateThresholdDB).Build(),
 	)
 	
 	registry.Add(
-		param.ThresholdParameter(paramCompThreshold, "Comp Threshold", minThresholdDB, maxThresholdDB, defaultCompThresholdDB).Build(),
+		param.ThresholdParameter(ParamCompThreshold, "Comp Threshold", minThresholdDB, maxThresholdDB, defaultCompThresholdDB).Build(),
 	)
 	
 	registry.Add(
-		param.RatioParameter(paramCompRatio, "Comp Ratio", minRatio, maxRatio, defaultRatio).Build(),
+		param.RatioParameter(ParamCompRatio, "Comp Ratio", minRatio, maxRatio, defaultRatio).Build(),
 	)
 	
 	registry.Add(
-		param.MixParameter(paramNoiseAmount, "Noise Amount").Build(),
+		param.MixParameter(ParamNoiseAmount, "Noise Amount").Build(),
 	)
 	
 	registry.Add(
-		param.Choice(paramChainSelect, "Chain Select", []param.ChoiceOption{
+		param.Choice(ParamChainSelect, "Chain Select", []param.ChoiceOption{
 			{Value: 0, Name: "Dynamics"},
 			{Value: 1, Name: "Simple"},
 		}).Build(),
@@ -157,7 +158,7 @@ func (p *ChainFXProcessor) Initialize(sampleRate float64, maxBlockSize int32) er
 
 func (p *ChainFXProcessor) ProcessAudio(ctx *process.Context) {
 	// Handle bypass
-	bypassParam := p.params.Get(paramBypass)
+	bypassParam := p.params.Get(ParamBypass)
 	if bypassParam != nil && bypassParam.GetValue() > 0.5 {
 		// Copy input to output
 		for ch := 0; ch < ctx.NumInputChannels(); ch++ {
@@ -171,23 +172,23 @@ func (p *ChainFXProcessor) ProcessAudio(ctx *process.Context) {
 	// Handle parameter changes
 	for _, change := range ctx.GetParameterChanges() {
 		switch change.ParamID {
-		case paramGateThreshold:
+		case ParamGateThreshold:
 			dbValue := minThresholdDB + change.Value*(maxThresholdDB-minThresholdDB)
 			p.gate.SetThreshold(dbValue)
 			
-		case paramCompThreshold:
+		case ParamCompThreshold:
 			dbValue := minThresholdDB + change.Value*(maxThresholdDB-minThresholdDB)
 			p.compressor.SetThreshold(dbValue)
 			
-		case paramCompRatio:
+		case ParamCompRatio:
 			ratio := minRatio + change.Value*(maxRatio-minRatio)
 			p.compressor.SetRatio(ratio)
 			
-		case paramNoiseAmount:
+		case ParamNoiseAmount:
 			amount := float32(change.Value * noiseScaleFactor)
 			p.noise.SetMix(amount)
 			
-		case paramChainSelect:
+		case ParamChainSelect:
 			if change.Value < 0.5 {
 				p.currentChain = p.dynamicsChain
 			} else {

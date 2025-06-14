@@ -1,9 +1,5 @@
 package main
 
-// #cgo CFLAGS: -I../../include
-// #include "../../bridge/bridge.c"
-// #include "../../bridge/component.c"
-import "C"
 import (
 	"fmt"
 	
@@ -15,6 +11,9 @@ import (
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
 	"github.com/justyntemme/vst3go/pkg/framework/process"
 	vst3plugin "github.com/justyntemme/vst3go/pkg/plugin"
+	
+	// Import C bridge - required for VST3 plugin to work
+	_ "github.com/justyntemme/vst3go/pkg/plugin/cbridge"
 )
 
 func init() {

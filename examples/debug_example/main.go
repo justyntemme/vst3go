@@ -1,10 +1,6 @@
 // Package main demonstrates the use of debug utilities in a VST3 plugin.
 package main
 
-// #cgo CFLAGS: -I../../include
-// #include "../../bridge/bridge.c"
-// #include "../../bridge/component.c"
-import "C"
 import (
 	"fmt"
 	"os"
@@ -17,11 +13,15 @@ import (
 	"github.com/justyntemme/vst3go/pkg/framework/plugin"
 	"github.com/justyntemme/vst3go/pkg/framework/process"
 	vst3plugin "github.com/justyntemme/vst3go/pkg/plugin"
+	
+	// Import C bridge - required for VST3 plugin to work
+	_ "github.com/justyntemme/vst3go/pkg/plugin/cbridge"
 )
 
 const (
-	paramBypass = iota
-	paramDebugLevel
+	// Parameter IDs
+	ParamBypass uint32 = iota
+	ParamDebugLevel
 )
 
 // DebugExamplePlugin demonstrates debug utilities
@@ -88,11 +88,11 @@ func (p *DebugExampleProcessor) Initialize(sampleRate float64, maxBlockSize int3
 	registry := p.params
 	
 	registry.Add(
-		param.BypassParameter(paramBypass, "Bypass").Build(),
+		param.BypassParameter(ParamBypass, "Bypass").Build(),
 	)
 	
 	registry.Add(
-		param.Choice(paramDebugLevel, "Debug Level", []param.ChoiceOption{
+		param.Choice(ParamDebugLevel, "Debug Level", []param.ChoiceOption{
 			{Value: 0, Name: "Debug"},
 			{Value: 1, Name: "Info"},
 			{Value: 2, Name: "Warn"},
@@ -118,7 +118,7 @@ func (p *DebugExampleProcessor) ProcessAudio(ctx *process.Context) {
 	// Handle parameter changes
 	for _, change := range ctx.GetParameterChanges() {
 		switch change.ParamID {
-		case paramDebugLevel:
+		case ParamDebugLevel:
 			level := int(change.Value * 4) // 0-4
 			p.logger.SetLevel(debug.LogLevel(level))
 			p.logger.Info("Debug level changed to: %s", debug.LogLevel(level).String())
@@ -133,7 +133,7 @@ func (p *DebugExampleProcessor) ProcessAudio(ctx *process.Context) {
 	}
 	
 	// Handle bypass
-	bypassParam := p.params.Get(paramBypass)
+	bypassParam := p.params.Get(ParamBypass)
 	if bypassParam != nil && bypassParam.GetValue() > 0.5 {
 		// Copy input to output
 		for ch := 0; ch < ctx.NumInputChannels(); ch++ {
